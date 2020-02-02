@@ -179,6 +179,23 @@ namespace HonsProjectKinect
 
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
+                            foreach (JointType jointType in joints.Keys)
+                            {
+                                //Console.WriteLine(joints[JointType.Head].Position.Z);
+                                //Console.WriteLine(joints[JointType.FootRight].Position.Z);
+
+                                float headX = joints[JointType.Head].Position.X;
+                                float headY = joints[JointType.Head].Position.Y;
+                                float headZ = joints[JointType.Head].Position.Z;
+
+                                float footX = joints[JointType.FootRight].Position.X;
+                                float footY = joints[JointType.FootRight].Position.Y;
+                                float footZ = joints[JointType.FootRight].Position.Z;
+
+                                double Height = (((headX - footX) * (headX - footX)) + ((headY - footY) * (headY - footY)) + ((headZ - footZ) * (headZ - footZ))) * 1 / 2;
+                                Console.WriteLine(Height);
+                            }
+
                             // convert the joint points to depth (display) space
                             Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
 
