@@ -173,28 +173,14 @@ namespace HonsProjectKinect
                     {
                         Pen drawPen = this.bodyColors[penIndex++];
 
+
                         if (body.IsTracked)
                         {
                             //this.DrawClippedEdges(body, dc);
 
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
-
-                            foreach (JointType jointType in joints.Keys)
-                            {
-                                //Console.WriteLine(joints[JointType.Head].Position.Z);
-                                //Console.WriteLine(joints[JointType.FootRight].Position.Z);
-
-                                float headX = joints[JointType.Head].Position.X;
-                                float headY = joints[JointType.Head].Position.Y;
-                                float headZ = joints[JointType.Head].Position.Z;
-
-                                float footX = joints[JointType.FootRight].Position.X;
-                                float footY = joints[JointType.FootRight].Position.Y;
-                                float footZ = joints[JointType.FootRight].Position.Z;
-
-                                double Height = (((headX - footX) * (headX - footX)) + ((headY - footY) * (headY - footY)) + ((headZ - footZ) * (headZ - footZ))) * 1 / 2;
-                                Console.WriteLine(Height);
-                            }
+                            //this.test(joints);
+                            Height(joints);
 
                             // convert the joint points to depth (display) space
                             Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
@@ -209,15 +195,11 @@ namespace HonsProjectKinect
                                     position.Z = InferredZPositionClamp;
                                 }
 
-                                //Console.WriteLine(position.Z);
                                 DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                 jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                             }
 
                             this.DrawBody(joints, jointPoints, dc, drawPen);
-
-                            //this.DrawHand(body.HandLeftState, jointPoints[JointType.HandLeft], dc);
-                            //this.DrawHand(body.HandRightState, jointPoints[JointType.HandRight], dc);
                         }
                     }
 
@@ -226,6 +208,74 @@ namespace HonsProjectKinect
                 }
             }
         }
+
+        public static double Height(IReadOnlyDictionary<JointType, Joint> joints)
+        {
+            var head = joints[JointType.Head];
+            var neck = joints[JointType.Neck];
+            var spineShoulder = joints[JointType.SpineShoulder];
+            var spineMid = joints[JointType.SpineMid];
+            var spineBase = joints[JointType.SpineBase];
+            var hipRight = joints[JointType.HipRight];
+            var hipLeft = joints[JointType.HipLeft];
+            var kneeRight = joints[JointType.KneeRight];
+            var kneeLeft = joints[JointType.KneeLeft];
+            var ankleRight = joints[JointType.AnkleRight];
+            var ankleLeft = joints[JointType.AnkleLeft];
+            var footRight = joints[JointType.FootRight];
+            var footLeft = joints[JointType.FootLeft];
+
+            double torsoHeight = Length(head, neck) + Length(neck, spineShoulder) + Length(spineShoulder, spineMid) + Length(spineMid, spineBase) + (Length(spineBase, hipLeft) + Length(spineBase, hipLeft)) / 2;
+
+            double leftLegHeight = Length(hipLeft, kneeLeft) + Length(kneeLeft, ankleLeft) + Length(ankleLeft, footLeft);
+
+            double rightLegHeight = Length(hipRight, kneeRight) + Length(kneeRight, ankleRight) + Length(ankleRight, footRight);
+
+            double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
+
+            Console.WriteLine(totalHeight);
+            return totalHeight;
+        }
+
+
+        public static double Length(Joint p1, Joint p2)
+        {
+            return Math.Sqrt(
+                Math.Pow(p1.Position.X - p2.Position.X, 2) +
+                Math.Pow(p1.Position.Y - p2.Position.Y, 2) +
+                Math.Pow(p1.Position.Z - p2.Position.Z, 2));
+        }
+
+        //private void test(IReadOnlyDictionary<JointType, Joint> joints)
+        //{
+        //    foreach (JointType jointType in joints.Keys)
+        //    {
+
+        //        TrackingState trackingState = joints[jointType].TrackingState;
+
+        //        //Console.WriteLine(joints[JointType.Head].Position.Z);
+        //        //Console.WriteLine(joints[JointType.FootRight].Position.Z);
+
+        //        float headX = joints[JointType.Head].Position.X;
+        //        float headY = joints[JointType.Head].Position.Y;
+        //        float headZ = joints[JointType.Head].Position.Z;
+
+        //        float footX = joints[JointType.FootRight].Position.X;
+        //        float footY = joints[JointType.FootRight].Position.Y;
+        //        float footZ = joints[JointType.FootRight].Position.Z;
+
+        //        //double Height = (((headX - footX) * (headX - footX)) + ((headY - footY) * (headY - footY)) + ((headZ - footZ) * (headZ - footZ))) * 1 / 2;
+
+        //        double Height = Math.Sqrt(Math.Pow(joints[JointType.Head].Position.X - joints[JointType.FootRight].Position.X, 2) +
+        //                        Math.Pow(joints[JointType.Head].Position.Y - joints[JointType.FootRight].Position.Y, 2) +
+        //                        Math.Pow(joints[JointType.Head].Position.Z - joints[JointType.FootRight].Position.Z, 2));
+
+        //        if (joints[jointType].TrackingState != TrackingState.Tracked)
+        //        {
+        //            Console.WriteLine(Height);
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Draws a body
@@ -294,6 +344,6 @@ namespace HonsProjectKinect
             }
 
             drawingContext.DrawLine(drawPen, jointPoints[jointType0], jointPoints[jointType1]);
-        }       
+        }
     }
 }
