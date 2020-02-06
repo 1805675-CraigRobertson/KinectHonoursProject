@@ -167,7 +167,7 @@ namespace HonsProjectKinect
                 {
                     // Draw a transparent background to set the render size
                     dc.DrawRectangle(Brushes.Black, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
-
+                    
                     int penIndex = 0;
                     foreach (Body body in this.bodies)
                     {
@@ -176,11 +176,10 @@ namespace HonsProjectKinect
 
                         if (body.IsTracked)
                         {
-                            //this.DrawClippedEdges(body, dc);
-
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
-                            //this.test(joints);
-                            Height(joints);
+
+                            double totalHeight = Height(joints);
+                            Console.WriteLine(totalHeight);
 
                             // convert the joint points to depth (display) space
                             Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
@@ -225,57 +224,25 @@ namespace HonsProjectKinect
             var footRight = joints[JointType.FootRight];
             var footLeft = joints[JointType.FootLeft];
 
-            double torsoHeight = Length(head, neck) + Length(neck, spineShoulder) + Length(spineShoulder, spineMid) + Length(spineMid, spineBase) + (Length(spineBase, hipLeft) + Length(spineBase, hipLeft)) / 2;
+            double torsoHeight = getLength(head, neck) + getLength(neck, spineShoulder) + getLength(spineShoulder, spineMid) + getLength(spineMid, spineBase) + (getLength(spineBase, hipLeft) + getLength(spineBase, hipRight)) / 2;
 
-            double leftLegHeight = Length(hipLeft, kneeLeft) + Length(kneeLeft, ankleLeft) + Length(ankleLeft, footLeft);
+            double leftLegHeight = getLength(hipLeft, kneeLeft) + getLength(kneeLeft, ankleLeft) + getLength(ankleLeft, footLeft);
 
-            double rightLegHeight = Length(hipRight, kneeRight) + Length(kneeRight, ankleRight) + Length(ankleRight, footRight);
+            double rightLegHeight = getLength(hipRight, kneeRight) + getLength(kneeRight, ankleRight) + getLength(ankleRight, footRight);
 
             double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
 
-            Console.WriteLine(totalHeight);
             return totalHeight;
         }
 
 
-        public static double Length(Joint p1, Joint p2)
+        public static double getLength(Joint p1, Joint p2)
         {
             return Math.Sqrt(
                 Math.Pow(p1.Position.X - p2.Position.X, 2) +
                 Math.Pow(p1.Position.Y - p2.Position.Y, 2) +
                 Math.Pow(p1.Position.Z - p2.Position.Z, 2));
         }
-
-        //private void test(IReadOnlyDictionary<JointType, Joint> joints)
-        //{
-        //    foreach (JointType jointType in joints.Keys)
-        //    {
-
-        //        TrackingState trackingState = joints[jointType].TrackingState;
-
-        //        //Console.WriteLine(joints[JointType.Head].Position.Z);
-        //        //Console.WriteLine(joints[JointType.FootRight].Position.Z);
-
-        //        float headX = joints[JointType.Head].Position.X;
-        //        float headY = joints[JointType.Head].Position.Y;
-        //        float headZ = joints[JointType.Head].Position.Z;
-
-        //        float footX = joints[JointType.FootRight].Position.X;
-        //        float footY = joints[JointType.FootRight].Position.Y;
-        //        float footZ = joints[JointType.FootRight].Position.Z;
-
-        //        //double Height = (((headX - footX) * (headX - footX)) + ((headY - footY) * (headY - footY)) + ((headZ - footZ) * (headZ - footZ))) * 1 / 2;
-
-        //        double Height = Math.Sqrt(Math.Pow(joints[JointType.Head].Position.X - joints[JointType.FootRight].Position.X, 2) +
-        //                        Math.Pow(joints[JointType.Head].Position.Y - joints[JointType.FootRight].Position.Y, 2) +
-        //                        Math.Pow(joints[JointType.Head].Position.Z - joints[JointType.FootRight].Position.Z, 2));
-
-        //        if (joints[jointType].TrackingState != TrackingState.Tracked)
-        //        {
-        //            Console.WriteLine(Height);
-        //        }
-        //    }
-        //}
 
         /// <summary>
         /// Draws a body
