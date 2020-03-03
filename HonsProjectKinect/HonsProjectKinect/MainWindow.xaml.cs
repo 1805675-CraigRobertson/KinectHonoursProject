@@ -179,6 +179,8 @@ namespace HonsProjectKinect
                             IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
                             double totalHeight = Height(joints);
+
+                            Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
                             Console.WriteLine(totalHeight);
 
                             // convert the joint points to depth (display) space
@@ -235,13 +237,20 @@ namespace HonsProjectKinect
             return totalHeight;
         }
 
-
         public static double getLength(Joint p1, Joint p2)
         {
             return Math.Sqrt(
                 Math.Pow(p1.Position.X - p2.Position.X, 2) +
                 Math.Pow(p1.Position.Y - p2.Position.Y, 2) +
                 Math.Pow(p1.Position.Z - p2.Position.Z, 2));
+        }
+
+        public double distanceToBody(CameraSpacePoint point) {
+            return Math.Sqrt(
+                point.X * point.X +
+                point.Y * point.Y +
+                point.Z * point.Z
+                );
         }
 
         /// <summary>
