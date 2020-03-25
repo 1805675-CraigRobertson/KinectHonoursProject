@@ -200,10 +200,6 @@ namespace HonsProjectKinect
                                 IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
                                 double totalHeight = getHeight(joints);
-
-                                Console.WriteLine(joints[JointType.HandRight].Position.Y);
-
-                                //Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
                                 //Console.WriteLine(totalHeight);
 
                                 // convert the joint points to depth (display) space
