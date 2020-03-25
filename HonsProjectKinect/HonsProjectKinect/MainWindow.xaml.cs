@@ -19,6 +19,18 @@ namespace HonsProjectKinect
 {
     public partial class MainWindow : Window
     {
+        //BodyIndex Colours
+        private const int BytesPerPixel = 4;
+        private static readonly uint[] BodyColor =
+        {
+            0x0000FF00,
+            0x00FF0000,
+            0xFFFF4000,
+            0x40FFFF00,
+            0xFF40FF00,
+            0xFF808000,
+        }; 
+
         //Skeleton
         private const double HandSize = 30;
         private const double JointThickness = 3;
@@ -151,22 +163,22 @@ namespace HonsProjectKinect
                 Microsoft.Kinect.KinectBuffer bodyIndexBuffer = bodyIndexFrame.LockImageBuffer();
                 Microsoft.Kinect.KinectBuffer depthBuffer = depthFrame.LockImageBuffer();
 
-                //bool bodyIndexFrameProcessed = false;
+                bool bodyIndexFrameProcessed = false;
                 bool dataReceived = false;
 
                 //BodyIndex verify data and write to bitmap 
-                //if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
-                //    (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
-                //{
-                //    this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
-                //    bodyIndexFrameProcessed = true;
-                //}
+                if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
+                    (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
+                {
+                    this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                    bodyIndexFrameProcessed = true;
+                }
 
                 //BodyIndex render pixels
-                //if (bodyIndexFrameProcessed)
-                //{
-                //    this.RenderBodyIndexPixels();
-                //}
+                if (bodyIndexFrameProcessed)
+                {
+                    this.RenderBodyIndexPixels();
+                }
 
                 //Check if BodyFrame null when add new body
                 if (this.bodies == null)
@@ -194,7 +206,6 @@ namespace HonsProjectKinect
                         {
                             Pen drawPen = this.bodyColors[penIndex++];
 
-
                             if (body.IsTracked)
                             {
                                 IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
@@ -220,6 +231,17 @@ namespace HonsProjectKinect
                                 }
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
+                            }
+                        }
+
+                        //Go through bodys 
+                        foreach (Body body in this.bodies)
+                        {
+                            if (body.IsTracked)
+                            {
+                                //getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                             }
                         }
 
@@ -346,12 +368,56 @@ namespace HonsProjectKinect
             drawingContext.DrawLine(drawPen, jointPoints[jointType0], jointPoints[jointType1]);
         }
 
+        private unsafe void ProcessBodyIndexFrameData(IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize)
+        {
+            byte* frameData = (byte*)bodyIndexFrameData;
+            int count = 0;
+            // convert body index to a visual representation
+            for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
+            {
+                // the BodyColor array has been sized to match
+                // BodyFrameSource.BodyCount
+                if (frameData[i] < 5)
+                {
+                    // this pixel is part of a player,
+                    // display the appropriate color
+
+                    count += 1;
+
+                    this.bodyIndexPixels[i] = BodyColor[frameData[i]];
+                }
+                else
+                {
+                    // this pixel is not part of a player
+                    // display black
+                    this.bodyIndexPixels[i] = 0x00000000;
+                }
+            }
+        }
+
+        private void RenderBodyIndexPixels()
+        {
+            this.bodyIndexBitmap.WritePixels(
+                new Int32Rect(0, 0, this.bodyIndexBitmap.PixelWidth, this.bodyIndexBitmap.PixelHeight),
+                this.bodyIndexPixels,
+                this.bodyIndexBitmap.PixelWidth * (int)BytesPerPixel,
+                0);
+        }
+
         //Gets data to display 
         public ImageSource ImageSource
         {
             get
             {
                 return this.imageSource;
+            }
+        }
+
+        public ImageSource ImageSourceBodyIndex
+        {
+            get
+            {
+                return this.bodyIndexBitmap;
             }
         }
 

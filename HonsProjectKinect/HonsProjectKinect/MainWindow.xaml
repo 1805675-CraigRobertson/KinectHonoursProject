@@ -14,7 +14,7 @@
             <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
         </Viewbox>
         <Viewbox Grid.Row="1" HorizontalAlignment="Right">
-            <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
+            <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" />
         </Viewbox>
     </Grid>
 </Window>
