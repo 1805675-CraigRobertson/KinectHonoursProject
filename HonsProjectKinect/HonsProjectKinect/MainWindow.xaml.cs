@@ -104,41 +104,6 @@ namespace HonsProjectKinect
             InitializeComponent();
         }
 
-        //Gets data to display 
-        public ImageSource ImageSource
-        {
-            get
-            {
-                return this.imageSource;
-            }
-        }
-
-        //Check if window is loaded
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (this.bodyFrameReader != null)
-            {
-                this.bodyFrameReader.FrameArrived += this.Reader_FrameArrived;
-            }
-        }
-
-        //Check if window is closed
-        private void MainWindow_Closing(object sender, CancelEventArgs e)
-        {
-            if (this.bodyFrameReader != null)
-            {
-                // BodyFrameReader is IDisposable
-                this.bodyFrameReader.Dispose();
-                this.bodyFrameReader = null;
-            }
-
-            if (this.kinectSensor != null)
-            {
-                this.kinectSensor.Close();
-                this.kinectSensor = null;
-            }
-        }
-
         //Method that handles the depth frames incoming 
         private void Reader_FrameArrived(object sender, BodyFrameArrivedEventArgs e)
         {
@@ -180,8 +145,10 @@ namespace HonsProjectKinect
 
                             double totalHeight = Height(joints);
 
-                            Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
-                            Console.WriteLine(totalHeight);
+                            Console.WriteLine(joints[JointType.HandRight].Position.Y);
+
+                            //Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
+                            //Console.WriteLine(totalHeight);
 
                             // convert the joint points to depth (display) space
                             Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
@@ -321,5 +288,40 @@ namespace HonsProjectKinect
 
             drawingContext.DrawLine(drawPen, jointPoints[jointType0], jointPoints[jointType1]);
         }
+
+        //Gets data to display 
+        public ImageSource ImageSource
+        {
+            get
+            {
+                return this.imageSource;
+            }
+        }
+
+        //Check if window is loaded
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (this.bodyFrameReader != null)
+            {
+                this.bodyFrameReader.FrameArrived += this.Reader_FrameArrived;
+            }
+        }
+
+        //Check if window is closed
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            if (this.bodyFrameReader != null)
+            {
+                // BodyFrameReader is IDisposable
+                this.bodyFrameReader.Dispose();
+                this.bodyFrameReader = null;
+            }
+
+            if (this.kinectSensor != null)
+            {
+                this.kinectSensor.Close();
+                this.kinectSensor = null;
+            }
+        }    
     }
 }
