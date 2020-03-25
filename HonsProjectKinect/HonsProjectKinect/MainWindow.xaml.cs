@@ -19,6 +19,7 @@ namespace HonsProjectKinect
 {
     public partial class MainWindow : Window
     {
+        //Skeleton
         private const double HandSize = 30;
         private const double JointThickness = 3;
         private const double ClipBoundsThickness = 10;
@@ -40,6 +41,13 @@ namespace HonsProjectKinect
         private int displayHeight;
         private List<Pen> bodyColors;
 
+        //MultiFrame
+        private MultiSourceFrameReader multiFrameSourceReader = null;
+        
+        //BodyIndex 
+        private FrameDescription bodyIndexFrameDescription = null;
+        private WriteableBitmap bodyIndexBitmap = null;
+        private uint[] bodyIndexPixels = null;
 
         public MainWindow()
         {
@@ -48,8 +56,20 @@ namespace HonsProjectKinect
             FrameDescription frameDescription = this.kinectSensor.DepthFrameSource.FrameDescription;
             this.displayWidth = frameDescription.Width;
             this.displayHeight = frameDescription.Height;
-            this.bodyFrameReader = this.kinectSensor.BodyFrameSource.OpenReader();
             this.bones = new List<Tuple<JointType, JointType>>();
+
+            //MultiFrame Reader
+            this.multiFrameSourceReader = this.kinectSensor.OpenMultiSourceFrameReader(FrameSourceTypes.Body | FrameSourceTypes.BodyIndex | FrameSourceTypes.Depth);
+            this.multiFrameSourceReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
+
+            //BodyIndexDescription
+            this.bodyIndexFrameDescription = this.kinectSensor.BodyIndexFrameSource.FrameDescription;
+
+            //BodyIndex Pixels Array
+            this.bodyIndexPixels = new uint[this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height];
+
+            //BodyIndex Bitmap
+            this.bodyIndexBitmap = new WriteableBitmap(this.bodyIndexFrameDescription.Width, this.bodyIndexFrameDescription.Height, 96.0, 96.0, PixelFormats.Bgr32, null);
 
             // Torso
             this.bones.Add(new Tuple<JointType, JointType>(JointType.Head, JointType.Neck));
@@ -87,7 +107,6 @@ namespace HonsProjectKinect
 
             // populate body colors, one for each BodyIndex
             this.bodyColors = new List<Pen>();
-
             this.bodyColors.Add(new Pen(Brushes.Red, 6));
             this.bodyColors.Add(new Pen(Brushes.Orange, 6));
             this.bodyColors.Add(new Pen(Brushes.Green, 6));
@@ -104,80 +123,138 @@ namespace HonsProjectKinect
             InitializeComponent();
         }
 
-        //Method that handles the depth frames incoming 
-        private void Reader_FrameArrived(object sender, BodyFrameArrivedEventArgs e)
-        {
-            bool dataReceived = false;
+        private unsafe void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e) {
+            BodyIndexFrame bodyIndexFrame = null;
+            BodyFrame bodyFrame = null;
+            DepthFrame depthFrame = null;
 
-            using (BodyFrame bodyFrame = e.FrameReference.AcquireFrame())
+            //Get frames
+            MultiSourceFrame multiSourceFrame = e.FrameReference.AcquireFrame();
+
+            //Check is frames are null
+            if (multiSourceFrame == null)
             {
-                if (bodyFrame != null)
-                {
-                    if (this.bodies == null)
-                    {
-                        this.bodies = new Body[bodyFrame.BodyCount];
-                    }
-
-                    // The first time GetAndRefreshBodyData is called, Kinect will allocate each Body in the array.
-                    // As long as those body objects are not disposed and not set to null in the array,
-                    // those body objects will be re-used.
-                    bodyFrame.GetAndRefreshBodyData(this.bodies);
-                    dataReceived = true;
-                }
+                return;
             }
 
-            if (dataReceived)
-            {
-                using (DrawingContext dc = this.drawingGroup.Open())
+            //Try acquiring frames
+            try {
+                bodyIndexFrame = multiSourceFrame.BodyIndexFrameReference.AcquireFrame();
+                bodyFrame = multiSourceFrame.BodyFrameReference.AcquireFrame();
+                depthFrame = multiSourceFrame.DepthFrameReference.AcquireFrame();
+
+                if ((bodyIndexFrame == null) || (bodyFrame == null) || (depthFrame == null))
                 {
-                    // Draw a transparent background to set the render size
-                    dc.DrawRectangle(Brushes.Black, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
-                    
-                    int penIndex = 0;
-                    foreach (Body body in this.bodies)
+                    return;
+                }
+
+                Microsoft.Kinect.KinectBuffer bodyIndexBuffer = bodyIndexFrame.LockImageBuffer();
+                Microsoft.Kinect.KinectBuffer depthBuffer = depthFrame.LockImageBuffer();
+
+                //bool bodyIndexFrameProcessed = false;
+                bool dataReceived = false;
+
+                //BodyIndex verify data and write to bitmap 
+                //if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
+                //    (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
+                //{
+                //    this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                //    bodyIndexFrameProcessed = true;
+                //}
+
+                //BodyIndex render pixels
+                //if (bodyIndexFrameProcessed)
+                //{
+                //    this.RenderBodyIndexPixels();
+                //}
+
+                //Check if BodyFrame null when add new body
+                if (this.bodies == null)
+                {
+                    this.bodies = new Body[bodyFrame.BodyCount];
+                }
+                bodyFrame.GetAndRefreshBodyData(this.bodies);
+                dataReceived = true;
+               
+
+
+                if(dataReceived){
+                    //Depth
+                    ushort* frameDataDepth = (ushort*)depthBuffer.UnderlyingBuffer;
+                    //BodyIndex
+                    byte* frameDataBodyIndex = (byte*)bodyIndexBuffer.UnderlyingBuffer;
+
+                    using (DrawingContext dc = this.drawingGroup.Open())
                     {
-                        Pen drawPen = this.bodyColors[penIndex++];
+                        // Draw a transparent background to set the render size
+                        dc.DrawRectangle(Brushes.Black, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
 
-
-                        if (body.IsTracked)
+                        int penIndex = 0;
+                        foreach (Body body in this.bodies)
                         {
-                            IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
+                            Pen drawPen = this.bodyColors[penIndex++];
 
-                            double totalHeight = Height(joints);
 
-                            Console.WriteLine(joints[JointType.HandRight].Position.Y);
-
-                            //Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
-                            //Console.WriteLine(totalHeight);
-
-                            // convert the joint points to depth (display) space
-                            Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
-
-                            foreach (JointType jointType in joints.Keys)
+                            if (body.IsTracked)
                             {
-                                // sometimes the depth(Z) of an inferred joint may show as negative
-                                // clamp down to 0.1f to prevent coordinatemapper from returning (-Infinity, -Infinity)
-                                CameraSpacePoint position = joints[jointType].Position;
-                                if (position.Z < 0)
+                                IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
+
+                                double totalHeight = getHeight(joints);
+
+                                Console.WriteLine(joints[JointType.HandRight].Position.Y);
+
+                                //Console.WriteLine("{0}", distanceToBody(joints[JointType.HandLeft].Position));
+                                //Console.WriteLine(totalHeight);
+
+                                // convert the joint points to depth (display) space
+                                Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
+
+                                foreach (JointType jointType in joints.Keys)
                                 {
-                                    position.Z = InferredZPositionClamp;
+                                    // sometimes the depth(Z) of an inferred joint may show as negative
+                                    // clamp down to 0.1f to prevent coordinatemapper from returning (-Infinity, -Infinity)
+                                    CameraSpacePoint position = joints[jointType].Position;
+                                    if (position.Z < 0)
+                                    {
+                                        position.Z = InferredZPositionClamp;
+                                    }
+
+                                    DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
+                                    jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                                 }
 
-                                DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
-                                jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
+                                this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
-
-                            this.DrawBody(joints, jointPoints, dc, drawPen);
                         }
-                    }
 
-                    // prevent drawing outside of our render area
-                    this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                        // prevent drawing outside of our render area
+                        this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                    }
+                    bodyIndexBuffer.Dispose();
+                    bodyIndexFrame.Dispose();
+                    bodyFrame.Dispose();
+                    depthFrame.Dispose();
+                    depthBuffer.Dispose();
+                }
+            }
+            finally
+            {
+                if (bodyIndexFrame != null)
+                {
+                    bodyIndexFrame.Dispose();
+                }
+                if (bodyFrame != null)
+                {
+                    bodyFrame.Dispose();
+                }
+                if (depthFrame != null)
+                {
+                    depthFrame.Dispose();
                 }
             }
         }
 
-        public static double Height(IReadOnlyDictionary<JointType, Joint> joints)
+        public static double getHeight(IReadOnlyDictionary<JointType, Joint> joints)
         {
             var head = joints[JointType.Head];
             var neck = joints[JointType.Neck];
@@ -220,13 +297,6 @@ namespace HonsProjectKinect
                 );
         }
 
-        /// <summary>
-        /// Draws a body
-        /// </summary>
-        /// <param name="joints">joints to draw</param>
-        /// <param name="jointPoints">translated positions of joints to draw</param>
-        /// <param name="drawingContext">drawing context to draw to</param>
-        /// <param name="drawingPen">specifies color to draw a specific body</param>
         private void DrawBody(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, DrawingContext drawingContext, Pen drawingPen)
         {
             // Draw the bones
@@ -258,15 +328,6 @@ namespace HonsProjectKinect
             }
         }
 
-        /// <summary>
-        /// Draws one bone of a body (joint to joint)
-        /// </summary>
-        /// <param name="joints">joints to draw</param>
-        /// <param name="jointPoints">translated positions of joints to draw</param>
-        /// <param name="jointType0">first joint of bone to draw</param>
-        /// <param name="jointType1">second joint of bone to draw</param>
-        /// <param name="drawingContext">drawing context to draw to</param>
-        /// /// <param name="drawingPen">specifies color to draw a specific bone</param>
         private void DrawBone(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, JointType jointType0, JointType jointType1, DrawingContext drawingContext, Pen drawingPen)
         {
             Joint joint0 = joints[jointType0];
@@ -301,9 +362,10 @@ namespace HonsProjectKinect
         //Check if window is loaded
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (this.bodyFrameReader != null)
+            if (this.multiFrameSourceReader != null)
             {
-                this.bodyFrameReader.FrameArrived += this.Reader_FrameArrived;
+                this.multiFrameSourceReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
+                Console.WriteLine("hey");
             }
         }
 
