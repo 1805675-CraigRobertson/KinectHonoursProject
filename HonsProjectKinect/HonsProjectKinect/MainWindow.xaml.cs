@@ -228,7 +228,13 @@ namespace HonsProjectKinect
                                     DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                     jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                                 }
-                                depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                                //Calculate how much space body takes up
+                                //depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                                
+                                //Get height of body using segmentation
+                                getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+
+
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
                         }
@@ -238,7 +244,6 @@ namespace HonsProjectKinect
                         {
                             if (body.IsTracked)
                             {
-                                //getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
                                 //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
                             }
                         }
@@ -268,6 +273,54 @@ namespace HonsProjectKinect
                     depthFrame.Dispose();
                 }
             }
+        }
+
+        public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
+        {
+            var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
+            Array.Reverse(bodyIndexPixels);
+            var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
+            lastIndexOfBody = 217007 - lastIndexOfBody;
+
+            if (firstIndexOfBody != -1)
+            {
+                double XCoor = Math.Floor(firstIndexOfBody % frameWidth);
+                double YCoor = firstIndexOfBody / frameWidth;
+                double ZCoor = frameDataDepth[firstIndexOfBody];
+
+                double XCoor2 = Math.Floor(lastIndexOfBody % frameWidth);
+                double YCoor2 = lastIndexOfBody / frameWidth;
+                double ZCoor2 = frameDataDepth[lastIndexOfBody];
+
+                //Console.WriteLine("{0}   {1}  {2}", XCoor2, YCoor2, ZCoor2);
+
+                CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
+                CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
+
+                //Console.WriteLine("TOP -    X: {0}   Y: {1}   Z: {2}", topOfHead.X, topOfHead.Y, topOfHead.Z);
+                //Console.WriteLine("BOTTOM - X: {0}   Y: {1}   Z: {2}", feet.X, feet.Y, feet.Z);
+
+                Console.WriteLine(getLength(firstIndex, lastIndex));
+            }
+        }
+
+        public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
+        {
+            DepthSpacePoint depthPoint = new DepthSpacePoint();
+            depthPoint.X = Convert.ToSingle(X);
+            depthPoint.Y = Convert.ToSingle(Y);
+            var CameraPoint = coordinateMapper.MapDepthPointToCameraSpace(depthPoint, Z);
+
+            //Console.WriteLine();
+            return CameraPoint;
+        }
+
+        public static double getLength(CameraSpacePoint p1, CameraSpacePoint p2)
+        {
+            return Math.Sqrt(
+                Math.Pow(p1.X - p2.X, 2) +
+                Math.Pow(p1.Y - p2.Y, 2) +
+                Math.Pow(p1.Z - p2.Z, 2));
         }
 
         public unsafe void depthSizeCalc(Joint D2Cam, IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize)
