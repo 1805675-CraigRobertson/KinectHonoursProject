@@ -209,8 +209,7 @@ namespace HonsProjectKinect
                             {
                                 IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
-                                double totalHeight = getHeight(joints);
-                                //Console.WriteLine(totalHeight);
+                                getHeight(joints);
 
                                 // convert the joint points to depth (display) space
                                 Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
@@ -310,7 +309,8 @@ namespace HonsProjectKinect
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                Console.WriteLine(getLength(firstIndex, lastIndex));
+                //Console.WriteLine(getLength(firstIndex, lastIndex));
+                widestMeasureData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
             }
 
             tempOf512.Clear();
@@ -331,17 +331,18 @@ namespace HonsProjectKinect
 
                 double XCoor2 = Math.Floor(lastIndexOfBody % frameWidth);
                 double YCoor2 = lastIndexOfBody / frameWidth;
-                double ZCoor2 = frameDataDepth[lastIndexOfBody];
+                double ZCoor2 = frameDataDepth[lastIndexOfBody - 512];
 
                 //Console.WriteLine("{0}   {1}  {2}", XCoor2, YCoor2, ZCoor2);
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                //Console.WriteLine("TOP -    X: {0}   Y: {1}   Z: {2}", topOfHead.X, topOfHead.Y, topOfHead.Z);
-                //Console.WriteLine("BOTTOM - X: {0}   Y: {1}   Z: {2}", feet.X, feet.Y, feet.Z);
+                //Console.WriteLine("TOP -    X: {0}   Y: {1}   Z: {2}", firstIndex.X, firstIndex.Y, firstIndex.Z);
+                //Console.WriteLine("BOTTOM - X: {0}   Y: {1}   Z: {2}", lastIndex.X, lastIndex.Y, lastIndex.Z);
 
-                Console.WriteLine(getLength(firstIndex, lastIndex));
+                //Console.WriteLine(getLength(firstIndex, lastIndex));
+                heightLabelData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
             }
         }
 
@@ -379,7 +380,7 @@ namespace HonsProjectKinect
             Console.WriteLine(count);
         }
 
-        public static double getHeight(IReadOnlyDictionary<JointType, Joint> joints)
+        public void getHeight(IReadOnlyDictionary<JointType, Joint> joints)
         {
             var head = joints[JointType.Head];
             var neck = joints[JointType.Neck];
@@ -403,7 +404,7 @@ namespace HonsProjectKinect
 
             double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
 
-            return totalHeight;
+            skeletonHeightData.Content = totalHeight.ToString("0.###") + " m";
         }
 
         public static double getLength(Joint p1, Joint p2)
@@ -534,18 +535,18 @@ namespace HonsProjectKinect
             if (this.multiFrameSourceReader != null)
             {
                 this.multiFrameSourceReader.MultiSourceFrameArrived += this.Reader_MultiSourceFrameArrived;
-                Console.WriteLine("hey");
+                Console.WriteLine(":)");
             }
         }
 
         //Check if window is closed
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
-            if (this.bodyFrameReader != null)
+            if (this.multiFrameSourceReader != null)
             {
                 // BodyFrameReader is IDisposable
-                this.bodyFrameReader.Dispose();
-                this.bodyFrameReader = null;
+                this.multiFrameSourceReader.Dispose();
+                this.multiFrameSourceReader = null;
             }
 
             if (this.kinectSensor != null)
@@ -553,6 +554,6 @@ namespace HonsProjectKinect
                 this.kinectSensor.Close();
                 this.kinectSensor = null;
             }
-        }    
+        }  
     }
 }
