@@ -234,17 +234,10 @@ namespace HonsProjectKinect
                                 //Get height of body using segmentation
                                 getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
+                                //Get Widest part of body in metres
+                                getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
-                            }
-                        }
-
-                        //Go through bodys 
-                        foreach (Body body in this.bodies)
-                        {
-                            if (body.IsTracked)
-                            {
-                                //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
                             }
                         }
 
@@ -273,6 +266,54 @@ namespace HonsProjectKinect
                     depthFrame.Dispose();
                 }
             }
+        }
+
+        public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
+        {
+            List<int> tempOf512 = new List<int>();
+
+            List<uint> bodyIndexPixelsList = new List<uint>();
+            bodyIndexPixelsList.AddRange(bodyIndexPixels);
+
+            for (int i = 0; i < bodyIndexPixels.Length; i += 512)
+            {
+                var yAxisIndexs = bodyIndexPixelsList.GetRange(i, 512);
+                var bodyIndexOccu = 512 - yAxisIndexs.Where(x => x.Equals(0)).Count();
+                tempOf512.Add(bodyIndexOccu);
+            }
+
+            int maxValue = tempOf512.Max();
+            int yAxisValue = tempOf512.IndexOf(maxValue);
+
+            //Get first & last point indexes
+            var getYAxisRange = bodyIndexPixelsList.GetRange(yAxisValue * 512, 512);
+
+            var firstPoint = getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512);
+            getYAxisRange.Reverse();
+
+            var lastPoint = (512 - getYAxisRange.FindIndex(val => val > 0)) + yAxisValue * 512;
+
+            //Console.WriteLine("first: {0}      last: {1}    diff{2}", firstPoint, lastPoint, lastPoint - firstPoint);
+
+            if (firstPoint != -1)
+            {
+                double XCoor = Math.Floor(firstPoint % frameWidth);
+                double YCoor = firstPoint / frameWidth;
+                double ZCoor = frameDataDepth[firstPoint];
+
+                double XCoor2 = Math.Floor(lastPoint % frameWidth);
+                double YCoor2 = lastPoint / frameWidth;
+                double ZCoor2 = frameDataDepth[lastPoint - 1];
+
+                //Console.WriteLine("X: {0}   Y: {1}  Z: {2}", XCoor2, YCoor2, ZCoor2);
+
+                CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
+                CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
+
+                Console.WriteLine(getLength(firstIndex, lastIndex));
+            }
+
+            tempOf512.Clear();
         }
 
         public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
