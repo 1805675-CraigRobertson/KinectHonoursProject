@@ -175,10 +175,10 @@ namespace HonsProjectKinect
                 }
 
                 //BodyIndex render pixels
-                if (bodyIndexFrameProcessed)
-                {
-                    this.RenderBodyIndexPixels();
-                }
+                //if (bodyIndexFrameProcessed)
+                //{
+                //    this.RenderBodyIndexPixels();
+                //}
 
                 //Check if BodyFrame null when add new body
                 if (this.bodies == null)
@@ -227,8 +227,9 @@ namespace HonsProjectKinect
                                     DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                     jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                                 }
+
                                 //Calculate how much space body takes up
-                                //depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                                depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                                 
                                 //Get height of body using segmentation
                                 getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
@@ -237,12 +238,20 @@ namespace HonsProjectKinect
                                 getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
+
                             }
                         }
-
+                      
                         // prevent drawing outside of our render area
                         this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
                     }
+
+                    if (bodyIndexFrameProcessed)
+                    {
+                        Array.Reverse(bodyIndexPixels);
+                        this.RenderBodyIndexPixels();
+                    }
+
                     bodyIndexBuffer.Dispose();
                     bodyIndexFrame.Dispose();
                     bodyFrame.Dispose();
@@ -319,6 +328,7 @@ namespace HonsProjectKinect
         public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
         {
             var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
+            drawPoint(firstIndexOfBody);
             Array.Reverse(bodyIndexPixels);
             var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
             lastIndexOfBody = 217007 - lastIndexOfBody;
@@ -342,8 +352,19 @@ namespace HonsProjectKinect
                 //Console.WriteLine("BOTTOM - X: {0}   Y: {1}   Z: {2}", lastIndex.X, lastIndex.Y, lastIndex.Z);
 
                 //Console.WriteLine(getLength(firstIndex, lastIndex));
-                heightLabelData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
+                heightLabelData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
             }
+        }
+
+        public void drawPoint(int index) {
+            for (int i = 0; i < 25; i += 1)
+            {
+                this.bodyIndexPixels[index + i] = 0xFFFF4000;
+                this.bodyIndexPixels[index - i] = 0xFFFF4000;
+                this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
+                this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
+            }
+        
         }
 
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
@@ -377,7 +398,7 @@ namespace HonsProjectKinect
                     count += 1;
                 }
             }
-            Console.WriteLine(count);
+            bodyIndexSizeData.Content = count;
         }
 
         public void getHeight(IReadOnlyDictionary<JointType, Joint> joints)
