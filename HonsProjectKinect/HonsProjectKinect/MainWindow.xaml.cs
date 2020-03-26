@@ -187,7 +187,6 @@ namespace HonsProjectKinect
                 }
                 bodyFrame.GetAndRefreshBodyData(this.bodies);
                 dataReceived = true;
-               
 
 
                 if(dataReceived){
@@ -229,7 +228,7 @@ namespace HonsProjectKinect
                                     DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
                                     jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                                 }
-
+                                depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
                         }
@@ -241,7 +240,6 @@ namespace HonsProjectKinect
                             {
                                 //getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
                                 //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
-                                //depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                             }
                         }
 
@@ -270,6 +268,21 @@ namespace HonsProjectKinect
                     depthFrame.Dispose();
                 }
             }
+        }
+
+        public unsafe void depthSizeCalc(Joint D2Cam, IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize)
+        {
+            byte* frameData = (byte*)bodyIndexFrameData;
+            int count = 0;
+
+            for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
+            {
+                if (frameData[i] < BodyColor.Length)
+                {
+                    count += 1;
+                }
+            }
+            Console.WriteLine(count);
         }
 
         public static double getHeight(IReadOnlyDictionary<JointType, Joint> joints)
