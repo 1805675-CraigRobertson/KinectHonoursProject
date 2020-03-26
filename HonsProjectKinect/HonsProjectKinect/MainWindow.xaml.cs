@@ -46,7 +46,6 @@ namespace HonsProjectKinect
         private DrawingImage imageSource;
         private KinectSensor kinectSensor = null;
         private CoordinateMapper coordinateMapper = null;
-        private BodyFrameReader bodyFrameReader = null;
         private Body[] bodies = null;
         private List<Tuple<JointType, JointType>> bones;
         private int displayWidth;
@@ -174,12 +173,6 @@ namespace HonsProjectKinect
                     bodyIndexFrameProcessed = true;
                 }
 
-                //BodyIndex render pixels
-                //if (bodyIndexFrameProcessed)
-                //{
-                //    this.RenderBodyIndexPixels();
-                //}
-
                 //Check if BodyFrame null when add new body
                 if (this.bodies == null)
                 {
@@ -209,8 +202,6 @@ namespace HonsProjectKinect
                             {
                                 IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
-                                getHeight(joints);
-
                                 // convert the joint points to depth (display) space
                                 Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
 
@@ -228,6 +219,9 @@ namespace HonsProjectKinect
                                     jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
                                 }
 
+                                //Calculate height of body using Skeleton API
+                                getSkeletonHeight(joints);
+
                                 //Calculate how much space body takes up
                                 depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                                 
@@ -238,7 +232,6 @@ namespace HonsProjectKinect
                                 getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
-
                             }
                         }
                       
@@ -246,6 +239,7 @@ namespace HonsProjectKinect
                         this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
                     }
 
+                    //BodyIndex render pixels
                     if (bodyIndexFrameProcessed)
                     {
                         Array.Reverse(bodyIndexPixels);
@@ -313,12 +307,10 @@ namespace HonsProjectKinect
                 double YCoor2 = lastPoint / frameWidth;
                 double ZCoor2 = frameDataDepth[lastPoint - 1];
 
-                //Console.WriteLine("X: {0}   Y: {1}  Z: {2}", XCoor2, YCoor2, ZCoor2);
-
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                //Console.WriteLine(getLength(firstIndex, lastIndex));
+                Console.WriteLine(getLength(firstIndex, lastIndex));
                 widestMeasureData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
             }
 
@@ -330,8 +322,10 @@ namespace HonsProjectKinect
             var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
             drawPoint(firstIndexOfBody);
             Array.Reverse(bodyIndexPixels);
+
             var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
             lastIndexOfBody = 217007 - lastIndexOfBody;
+            drawPoint(217007 - lastIndexOfBody);
 
             if (firstIndexOfBody != -1)
             {
@@ -343,28 +337,11 @@ namespace HonsProjectKinect
                 double YCoor2 = lastIndexOfBody / frameWidth;
                 double ZCoor2 = frameDataDepth[lastIndexOfBody - 512];
 
-                //Console.WriteLine("{0}   {1}  {2}", XCoor2, YCoor2, ZCoor2);
-
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                //Console.WriteLine("TOP -    X: {0}   Y: {1}   Z: {2}", firstIndex.X, firstIndex.Y, firstIndex.Z);
-                //Console.WriteLine("BOTTOM - X: {0}   Y: {1}   Z: {2}", lastIndex.X, lastIndex.Y, lastIndex.Z);
-
-                //Console.WriteLine(getLength(firstIndex, lastIndex));
                 heightLabelData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
             }
-        }
-
-        public void drawPoint(int index) {
-            for (int i = 0; i < 25; i += 1)
-            {
-                this.bodyIndexPixels[index + i] = 0xFFFF4000;
-                this.bodyIndexPixels[index - i] = 0xFFFF4000;
-                this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
-                this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
-            }
-        
         }
 
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
@@ -374,7 +351,6 @@ namespace HonsProjectKinect
             depthPoint.Y = Convert.ToSingle(Y);
             var CameraPoint = coordinateMapper.MapDepthPointToCameraSpace(depthPoint, Z);
 
-            //Console.WriteLine();
             return CameraPoint;
         }
 
@@ -401,7 +377,7 @@ namespace HonsProjectKinect
             bodyIndexSizeData.Content = count;
         }
 
-        public void getHeight(IReadOnlyDictionary<JointType, Joint> joints)
+        public void getSkeletonHeight(IReadOnlyDictionary<JointType, Joint> joints)
         {
             var head = joints[JointType.Head];
             var neck = joints[JointType.Neck];
@@ -442,6 +418,17 @@ namespace HonsProjectKinect
                 point.Y * point.Y +
                 point.Z * point.Z
                 );
+        }
+
+        public void drawPoint(int index)
+        {
+            for (int i = 0; i < 20; i += 1)
+            {
+                this.bodyIndexPixels[index + i] = 0xFFFF4000;
+                this.bodyIndexPixels[index - i] = 0xFFFF4000;
+                this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
+                this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
+            }
         }
 
         private void DrawBody(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, DrawingContext drawingContext, Pen drawingPen)
@@ -504,21 +491,13 @@ namespace HonsProjectKinect
             // convert body index to a visual representation
             for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
             {
-                // the BodyColor array has been sized to match
-                // BodyFrameSource.BodyCount
                 if (frameData[i] < 5)
                 {
-                    // this pixel is part of a player,
-                    // display the appropriate color
-
                     count += 1;
-
                     this.bodyIndexPixels[i] = BodyColor[frameData[i]];
                 }
                 else
                 {
-                    // this pixel is not part of a player
-                    // display black
                     this.bodyIndexPixels[i] = 0x00000000;
                 }
             }
