@@ -10,11 +10,16 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512">
-            <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
+        <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512" Height="424" Width="512">
+            <Grid>
+                <Image Source="{Binding ImageSource}" Stretch="UniformToFill" Height="424" Width="512"/>
+            </Grid>
         </Viewbox>
-        <Viewbox Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" MinHeight="424" MaxWidth="512">
-            <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" />
+        <Viewbox Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" MinHeight="424" MinWidth="512" Height="424" Width="512">
+            <Grid>
+                <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" MinHeight="424" MinWidth="512"/>
+                <TextBlock x:Name="indexTB" Margin="0,0,426,392" TextWrapping="Wrap" Text="{Binding heightTextData}" Foreground="Green" FontSize="17.5" />
+            </Grid>
         </Viewbox>
         <Label x:Name="heightLabelData" Content="0" HorizontalAlignment="Left" Margin="130,-92,0,0" VerticalAlignment="Top" Width="155"/>
         <Label x:Name="heightLabel" Content="Segmentation Height: " HorizontalAlignment="Left" Margin="0,-92,0,0" VerticalAlignment="Top"/>

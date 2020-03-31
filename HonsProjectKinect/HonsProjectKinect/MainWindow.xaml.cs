@@ -59,6 +59,7 @@ namespace HonsProjectKinect
         private FrameDescription bodyIndexFrameDescription = null;
         private WriteableBitmap bodyIndexBitmap = null;
         private uint[] bodyIndexPixels = null;
+        public string segmentationtitleTB = null;
 
         public MainWindow()
         {
@@ -225,13 +226,13 @@ namespace HonsProjectKinect
                                 //Calculate how much space body takes up
                                 depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
 
-                                //Get height of body using segmentation
-                                //getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
-
                                 //Get Widest part of body in metres
                                 getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
-                              this.DrawBody(joints, jointPoints, dc, drawPen);
+                                //Get height of body using segmentation
+                                getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+
+                                this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
                         }
 
@@ -242,7 +243,6 @@ namespace HonsProjectKinect
                     //BodyIndex render pixels
                     if (bodyIndexFrameProcessed)
                     {
-                        //Array.Reverse(bodyIndexPixels);
                         this.RenderBodyIndexPixels();
                     }
 
@@ -268,6 +268,17 @@ namespace HonsProjectKinect
                     depthFrame.Dispose();
                 }
             }
+        }
+
+        public void TranslateTB(double X, double Y, string Text) { 
+            TranslateTransform translate = new TranslateTransform(X,Y - 50);
+            indexTB.RenderTransform = translate;
+            indexTB.DataContext = new segmentationHeightText() { heightTextData = Text };
+        }
+
+        public class segmentationHeightText
+        {
+            public string heightTextData { get; set; }
         }
 
         public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
@@ -310,17 +321,11 @@ namespace HonsProjectKinect
                 double YCoor2 = 423 - (lastPoint / frameWidth);
                 double ZCoor2 = frameDataDepth[lastPoint ];
 
-                Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
-                Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
-
+                //Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
+                //Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
-
-                //Console.WriteLine("First:   {0}      {1}     {2}", firstIndex.X, firstIndex.Y, firstIndex.Z);
-                //Console.WriteLine("Last:    {0}      {1}     {2}", lastIndex.X, lastIndex.Y, lastIndex.Z);
-
-                //Console.WriteLine("FirstZ:  {0}     LastZ: {1}", firstIndex.Z, lastIndex.Z);
 
                 //Console.WriteLine(getLength(firstIndex, lastIndex));
                 widestMeasureData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
@@ -345,12 +350,16 @@ namespace HonsProjectKinect
 
                 double XCoor2 = Math.Floor(lastIndexOfBody % frameWidth);
                 double YCoor2 = lastIndexOfBody / frameWidth;
-                double ZCoor2 = frameDataDepth[lastIndexOfBody - 512];
+                double ZCoor2 = frameDataDepth[lastIndexOfBody - 511];
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                heightLabelData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
+                string segmentationHeight = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
+
+                heightLabelData.Content = segmentationHeight;
+                TranslateTB(XCoor, YCoor, segmentationHeight);
+                Array.Reverse(bodyIndexPixels);
             }
         }
 
