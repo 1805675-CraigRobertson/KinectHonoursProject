@@ -270,15 +270,29 @@ namespace HonsProjectKinect
             }
         }
 
-        public void TranslateTB(double X, double Y, string Text) { 
-            TranslateTransform translate = new TranslateTransform(X,Y - 50);
-            indexTB.RenderTransform = translate;
-            indexTB.DataContext = new segmentationHeightText() { heightTextData = Text };
+        public void TranslateTB(double X, double Y, string Text, string Method) {
+            switch(Method){
+                case "height":
+                    TranslateTransform translateHeight = new TranslateTransform(X,Y - 50);
+                    heightTB.RenderTransform = translateHeight;
+                    heightTB.DataContext = new segmentationHeightText() { heightTextData = Text };
+                    break;
+                case "width":
+                    TranslateTransform translateWidth = new TranslateTransform(X,Y - 50);
+                    widthTB.RenderTransform = translateWidth;
+                    widthTB.DataContext = new segmentationWidthText() { widthTextData = Text };
+                    break;
+            }
         }
 
         public class segmentationHeightText
         {
             public string heightTextData { get; set; }
+        }
+
+        public class segmentationWidthText
+        {
+            public string widthTextData { get; set; }
         }
 
         public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
@@ -311,24 +325,26 @@ namespace HonsProjectKinect
 
             //Console.WriteLine("first: {0}      last: {1}    diff{2}", firstPoint, lastPoint, lastPoint - firstPoint);
 
+            getYAxisRange.Reverse();
             if (firstPoint != -1)
             {
                 double XCoor = (Math.Floor(firstPoint % frameWidth));
-                double YCoor = 423 - (firstPoint / frameWidth);
+                double YCoor = (firstPoint / frameWidth);
                 double ZCoor = frameDataDepth[firstPoint];
 
                 double XCoor2 = (Math.Floor(lastPoint % frameWidth));
-                double YCoor2 = 423 - (lastPoint / frameWidth);
-                double ZCoor2 = frameDataDepth[lastPoint ];
+                double YCoor2 = (lastPoint / frameWidth);
+                double ZCoor2 = frameDataDepth[lastPoint];
 
-                //Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
+                Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
                 //Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                //Console.WriteLine(getLength(firstIndex, lastIndex));
-                widestMeasureData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
+                string segmentationWidth = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
+                widestMeasureData.Content = segmentationWidth;
+                TranslateTB(XCoor, YCoor, segmentationWidth, "width");
             }
         }
 
@@ -358,7 +374,7 @@ namespace HonsProjectKinect
                 string segmentationHeight = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
 
                 heightLabelData.Content = segmentationHeight;
-                TranslateTB(XCoor, YCoor, segmentationHeight);
+                TranslateTB(XCoor, YCoor, segmentationHeight, "height");
                 Array.Reverse(bodyIndexPixels);
             }
         }
