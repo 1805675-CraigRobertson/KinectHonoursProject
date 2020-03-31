@@ -20,7 +20,7 @@
         <Label x:Name="heightLabel" Content="Segmentation Height: " HorizontalAlignment="Left" Margin="0,-92,0,0" VerticalAlignment="Top"/>
         <Label x:Name="skeletonHeight" Content="Skeleton Height: " HorizontalAlignment="Left" Margin="0,-61,0,0" VerticalAlignment="Top"/>
         <Label x:Name="skeletonHeightData" Content="0" HorizontalAlignment="Left" Margin="130,-61,0,0" VerticalAlignment="Top" Width="155"/>
-        <Label x:Name="widestMeasure" Content="Segmentation Wide: " HorizontalAlignment="Left" Margin="0,-30,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="widestMeasure" Content="Segmentation Width: " HorizontalAlignment="Left" Margin="0,-30,0,0" VerticalAlignment="Top"/>
         <Label x:Name="widestMeasureData" Content="0" HorizontalAlignment="Left" Margin="130,-30,0,0" VerticalAlignment="Top" Width="155"/>
         <Label x:Name="bodyIndexSize" Content="Body Index Size: " HorizontalAlignment="Left" Margin="290,-92,0,0" VerticalAlignment="Top"/>
         <Label x:Name="bodyIndexSizeData" Content="0" HorizontalAlignment="Left" Margin="410,-92,0,0" VerticalAlignment="Top" Width="155"/>

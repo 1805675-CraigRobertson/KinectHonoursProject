@@ -224,17 +224,17 @@ namespace HonsProjectKinect
 
                                 //Calculate how much space body takes up
                                 depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
-                                
+
                                 //Get height of body using segmentation
-                                getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
                                 //Get Widest part of body in metres
                                 getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
-                                this.DrawBody(joints, jointPoints, dc, drawPen);
+                              this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
                         }
-                      
+
                         // prevent drawing outside of our render area
                         this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
                     }
@@ -242,7 +242,7 @@ namespace HonsProjectKinect
                     //BodyIndex render pixels
                     if (bodyIndexFrameProcessed)
                     {
-                        Array.Reverse(bodyIndexPixels);
+                        //Array.Reverse(bodyIndexPixels);
                         this.RenderBodyIndexPixels();
                     }
 
@@ -287,45 +287,55 @@ namespace HonsProjectKinect
             int maxValue = tempOf512.Max();
             int yAxisValue = tempOf512.IndexOf(maxValue);
 
+            tempOf512.Clear();
+
             //Get first & last point indexes
             var getYAxisRange = bodyIndexPixelsList.GetRange(yAxisValue * 512, 512);
 
             var firstPoint = getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512);
+            
             getYAxisRange.Reverse();
 
-            var lastPoint = (512 - getYAxisRange.FindIndex(val => val > 0)) + yAxisValue * 512;
+            var lastPoint = (511 - getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512));
 
             //Console.WriteLine("first: {0}      last: {1}    diff{2}", firstPoint, lastPoint, lastPoint - firstPoint);
 
             if (firstPoint != -1)
             {
-                double XCoor = Math.Floor(firstPoint % frameWidth);
-                double YCoor = firstPoint / frameWidth;
+                double XCoor = (Math.Floor(firstPoint % frameWidth));
+                double YCoor = 423 - (firstPoint / frameWidth);
                 double ZCoor = frameDataDepth[firstPoint];
 
-                double XCoor2 = Math.Floor(lastPoint % frameWidth);
-                double YCoor2 = lastPoint / frameWidth;
-                double ZCoor2 = frameDataDepth[lastPoint - 1];
+                double XCoor2 = (Math.Floor(lastPoint % frameWidth));
+                double YCoor2 = 423 - (lastPoint / frameWidth);
+                double ZCoor2 = frameDataDepth[lastPoint ];
+
+                Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
+                Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
+
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                Console.WriteLine(getLength(firstIndex, lastIndex));
+                //Console.WriteLine("First:   {0}      {1}     {2}", firstIndex.X, firstIndex.Y, firstIndex.Z);
+                //Console.WriteLine("Last:    {0}      {1}     {2}", lastIndex.X, lastIndex.Y, lastIndex.Z);
+
+                //Console.WriteLine("FirstZ:  {0}     LastZ: {1}", firstIndex.Z, lastIndex.Z);
+
+                //Console.WriteLine(getLength(firstIndex, lastIndex));
                 widestMeasureData.Content = getLength(firstIndex, lastIndex).ToString("0.###") + " m"; 
             }
-
-            tempOf512.Clear();
         }
 
         public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
         {
             var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
-            drawPoint(firstIndexOfBody);
+            //drawPoint(firstIndexOfBody);
             Array.Reverse(bodyIndexPixels);
 
             var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
             lastIndexOfBody = 217007 - lastIndexOfBody;
-            drawPoint(217007 - lastIndexOfBody);
+            //drawPoint(217007 - lastIndexOfBody);
 
             if (firstIndexOfBody != -1)
             {
@@ -347,8 +357,8 @@ namespace HonsProjectKinect
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
         {
             DepthSpacePoint depthPoint = new DepthSpacePoint();
-            depthPoint.X = Convert.ToSingle(X);
-            depthPoint.Y = Convert.ToSingle(Y);
+            depthPoint.X = X;
+            depthPoint.Y = Y;
             var CameraPoint = coordinateMapper.MapDepthPointToCameraSpace(depthPoint, Z);
 
             return CameraPoint;
@@ -420,16 +430,16 @@ namespace HonsProjectKinect
                 );
         }
 
-        public void drawPoint(int index)
-        {
-            for (int i = 0; i < 20; i += 1)
-            {
-                this.bodyIndexPixels[index + i] = 0xFFFF4000;
-                this.bodyIndexPixels[index - i] = 0xFFFF4000;
-                this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
-                this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
-            }
-        }
+        //public void drawPoint(int index)
+        //{
+        //    for (int i = 0; i < 20; i += 1)
+        //    {
+        //        this.bodyIndexPixels[index + i] = 0xFFFF4000;
+        //        this.bodyIndexPixels[index - i] = 0xFFFF4000;
+        //        this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
+        //        this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
+        //    }
+        //}
 
         private void DrawBody(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, DrawingContext drawingContext, Pen drawingPen)
         {
