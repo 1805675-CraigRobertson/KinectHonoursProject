@@ -61,6 +61,12 @@ namespace HonsProjectKinect
         private uint[] bodyIndexPixels = null;
         public string segmentationtitleTB = null;
 
+        //Depth
+        private WriteableBitmap depthBitmap = null;
+        private byte[] depthPixels = null;
+        private FrameDescription depthFrameDescription = null;
+        private const int MapDepthToByte = 8000 / 256;
+
         public MainWindow()
         {
             this.kinectSensor = KinectSensor.GetDefault();
@@ -82,6 +88,11 @@ namespace HonsProjectKinect
 
             //BodyIndex Bitmap
             this.bodyIndexBitmap = new WriteableBitmap(this.bodyIndexFrameDescription.Width, this.bodyIndexFrameDescription.Height, 96.0, 96.0, PixelFormats.Bgr32, null);
+
+            //Depth
+            this.depthFrameDescription = this.kinectSensor.DepthFrameSource.FrameDescription;
+            this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
+            this.depthBitmap = new WriteableBitmap(this.depthFrameDescription.Width, this.depthFrameDescription.Height, 96.0, 96.0, PixelFormats.Gray8, null);
 
             // Torso
             this.bones.Add(new Tuple<JointType, JointType>(JointType.Head, JointType.Neck));
@@ -172,6 +183,7 @@ namespace HonsProjectKinect
                 {
                     this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
                     bodyIndexFrameProcessed = true;
+                    this.ProcessDepthFrameData(depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance, ushort.MaxValue);
                 }
 
                 //Check if BodyFrame null when add new body
@@ -192,7 +204,7 @@ namespace HonsProjectKinect
                     using (DrawingContext dc = this.drawingGroup.Open())
                     {
                         // Draw a transparent background to set the render size
-                        dc.DrawRectangle(Brushes.Black, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
 
                         int penIndex = 0;
                         foreach (Body body in this.bodies)
@@ -244,6 +256,7 @@ namespace HonsProjectKinect
                     if (bodyIndexFrameProcessed)
                     {
                         this.RenderBodyIndexPixels();
+                        this.RenderDepthPixels();
                     }
 
                     bodyIndexBuffer.Dispose();
@@ -283,16 +296,6 @@ namespace HonsProjectKinect
                     widthTB.DataContext = new segmentationWidthText() { widthTextData = Text };
                     break;
             }
-        }
-
-        public class segmentationHeightText
-        {
-            public string heightTextData { get; set; }
-        }
-
-        public class segmentationWidthText
-        {
-            public string widthTextData { get; set; }
         }
 
         public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
@@ -336,7 +339,7 @@ namespace HonsProjectKinect
                 double YCoor2 = (lastPoint / frameWidth);
                 double ZCoor2 = frameDataDepth[lastPoint];
 
-                Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
+                //Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
                 //Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
@@ -538,6 +541,23 @@ namespace HonsProjectKinect
             }
         }
 
+        private unsafe void ProcessDepthFrameData(IntPtr depthFrameData, uint depthFrameDataSize, ushort minDepth, ushort maxDepth)
+        {
+            // depth frame data is a 16 bit value
+            ushort* frameData = (ushort*)depthFrameData;
+
+            // convert depth to a visual representation
+            for (int i = 0; i < (int)(depthFrameDataSize / this.depthFrameDescription.BytesPerPixel); ++i)
+            {
+                // Get the depth for this pixel
+                ushort depth = frameData[i];
+
+                // To convert to a byte, we're mapping the depth value to the byte range.
+                // Values outside the reliable depth range are mapped to 0 (black).
+                this.depthPixels[i] = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / MapDepthToByte) : 0);
+            }
+        }
+
         private void RenderBodyIndexPixels()
         {
             this.bodyIndexBitmap.WritePixels(
@@ -547,7 +567,15 @@ namespace HonsProjectKinect
                 0);
         }
 
-        //Gets data to display 
+        private void RenderDepthPixels()
+        {
+            this.depthBitmap.WritePixels(
+                new Int32Rect(0, 0, this.depthBitmap.PixelWidth, this.depthBitmap.PixelHeight),
+                this.depthPixels,
+                this.depthBitmap.PixelWidth,
+                0);
+        }
+
         public ImageSource ImageSource
         {
             get
@@ -562,6 +590,24 @@ namespace HonsProjectKinect
             {
                 return this.bodyIndexBitmap;
             }
+        }
+
+        public ImageSource ImageSourceDepth
+        {
+            get
+            {
+                return this.depthBitmap;
+            }
+        }
+
+        public class segmentationHeightText
+        {
+            public string heightTextData { get; set; }
+        }
+
+        public class segmentationWidthText
+        {
+            public string widthTextData { get; set; }
         }
 
         //Check if window is loaded

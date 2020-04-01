@@ -12,6 +12,7 @@
         </Grid.RowDefinitions>
         <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512" Height="424" Width="512">
             <Grid>
+                <Image Source="{Binding ImageSourceDepth}" Stretch="UniformToFill" Height="424" Width="512"/>
                 <Image Source="{Binding ImageSource}" Stretch="UniformToFill" Height="424" Width="512"/>
             </Grid>
         </Viewbox>
