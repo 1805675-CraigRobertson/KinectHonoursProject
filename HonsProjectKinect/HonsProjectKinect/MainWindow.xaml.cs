@@ -190,9 +190,9 @@ namespace HonsProjectKinect
                 {
                     this.bodies = new Body[bodyFrame.BodyCount];
                 }
+
                 bodyFrame.GetAndRefreshBodyData(this.bodies);
                 dataReceived = true;
-
 
                 if(dataReceived){
                     //Depth
@@ -200,15 +200,19 @@ namespace HonsProjectKinect
                     //BodyIndex
                     byte* frameDataBodyIndex = (byte*)bodyIndexBuffer.UnderlyingBuffer;
 
-                    using (DrawingContext dc = this.drawingGroup.Open())
-                    {
-                        // Draw a transparent background to set the render size
-                        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                    DrawingContext dc = this.drawingGroup.Open();
 
-                        int penIndex = 0;
-                        foreach (Body body in this.bodies)
+                    dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+
+                    int penIndex = 0;
+
+                    Pen drawPen = this.bodyColors[penIndex++];
+
+                    for (int i = 0; i < bodyFrame.BodyCount; i++)
+                    {
+                        if (this.bodies[i].IsTracked)
                         {
-                            Pen drawPen = this.bodyColors[penIndex++];
+                            var body = this.bodies[i];
 
                             if (body.IsTracked)
                             {
@@ -243,17 +247,18 @@ namespace HonsProjectKinect
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
                         }
-
-                        // prevent drawing outside of our render area
-                        this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
                     }
 
+                    // prevent drawing outside of our render area
+                    this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                    
                     //BodyIndex render pixels
                     if (bodyIndexFrameProcessed)
                     {
                         this.RenderBodyIndexDepthPixels();
                     }
 
+                    dc.Close();
                     bodyIndexBuffer.Dispose();
                     bodyIndexFrame.Dispose();
                     bodyFrame.Dispose();
@@ -303,7 +308,15 @@ namespace HonsProjectKinect
             for (int i = 0; i < bodyIndexPixels.Length; i += 512)
             {
                 var yAxisIndexs = bodyIndexPixelsList.GetRange(i, 512);
-                var bodyIndexOccu = 512 - yAxisIndexs.Where(x => x.Equals(0)).Count();
+                //var bodyIndexOccu = 512 - yAxisIndexs.Where(x => x.Equals(0)).Count();
+
+                //May be faster
+                int count=0;
+                foreach (uint s in yAxisIndexs) {
+                    if (s.Equals(0)) count++;
+                }
+                var bodyIndexOccu = 512 - count;
+
                 tempOf512.Add(bodyIndexOccu);
             }
 
