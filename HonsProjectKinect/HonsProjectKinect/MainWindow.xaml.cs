@@ -181,9 +181,8 @@ namespace HonsProjectKinect
                 if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
                     (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
                 {
-                    this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                    this.ProcessDepthBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size, depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance);
                     bodyIndexFrameProcessed = true;
-                    this.ProcessDepthFrameData(depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance, ushort.MaxValue);
                 }
 
                 //Check if BodyFrame null when add new body
@@ -235,9 +234,6 @@ namespace HonsProjectKinect
                                 //Calculate height of body using Skeleton API
                                 getSkeletonHeight(joints);
 
-                                //Calculate how much space body takes up
-                                depthSizeCalc(joints[JointType.SpineMid], bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
-
                                 //Get Widest part of body in metres
                                 getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
 
@@ -255,8 +251,7 @@ namespace HonsProjectKinect
                     //BodyIndex render pixels
                     if (bodyIndexFrameProcessed)
                     {
-                        this.RenderBodyIndexPixels();
-                        this.RenderDepthPixels();
+                        this.RenderBodyIndexDepthPixels();
                     }
 
                     bodyIndexBuffer.Dispose();
@@ -354,12 +349,10 @@ namespace HonsProjectKinect
         public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
         {
             var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
-            //drawPoint(firstIndexOfBody);
             Array.Reverse(bodyIndexPixels);
 
             var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
             lastIndexOfBody = 217007 - lastIndexOfBody;
-            //drawPoint(217007 - lastIndexOfBody);
 
             if (firstIndexOfBody != -1)
             {
@@ -400,21 +393,6 @@ namespace HonsProjectKinect
                 Math.Pow(p1.Z - p2.Z, 2));
         }
 
-        public unsafe void depthSizeCalc(Joint D2Cam, IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize)
-        {
-            byte* frameData = (byte*)bodyIndexFrameData;
-            int count = 0;
-
-            for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
-            {
-                if (frameData[i] < BodyColor.Length)
-                {
-                    count += 1;
-                }
-            }
-            bodyIndexSizeData.Content = count;
-        }
-
         public void getSkeletonHeight(IReadOnlyDictionary<JointType, Joint> joints)
         {
             var head = joints[JointType.Head];
@@ -431,43 +409,24 @@ namespace HonsProjectKinect
             var footRight = joints[JointType.FootRight];
             var footLeft = joints[JointType.FootLeft];
 
-            double torsoHeight = getLength(head, neck) + getLength(neck, spineShoulder) + getLength(spineShoulder, spineMid) + getLength(spineMid, spineBase) + (getLength(spineBase, hipLeft) + getLength(spineBase, hipRight)) / 2;
+            double torsoHeight = getSkeletonLength(head, neck) + getSkeletonLength(neck, spineShoulder) + getSkeletonLength(spineShoulder, spineMid) + getSkeletonLength(spineMid, spineBase) + (getSkeletonLength(spineBase, hipLeft) + getSkeletonLength(spineBase, hipRight)) / 2;
 
-            double leftLegHeight = getLength(hipLeft, kneeLeft) + getLength(kneeLeft, ankleLeft) + getLength(ankleLeft, footLeft);
+            double leftLegHeight = getSkeletonLength(hipLeft, kneeLeft) + getSkeletonLength(kneeLeft, ankleLeft) + getSkeletonLength(ankleLeft, footLeft);
 
-            double rightLegHeight = getLength(hipRight, kneeRight) + getLength(kneeRight, ankleRight) + getLength(ankleRight, footRight);
+            double rightLegHeight = getSkeletonLength(hipRight, kneeRight) + getSkeletonLength(kneeRight, ankleRight) + getSkeletonLength(ankleRight, footRight);
 
             double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
 
             skeletonHeightData.Content = totalHeight.ToString("0.###") + " m";
         }
 
-        public static double getLength(Joint p1, Joint p2)
+        public static double getSkeletonLength(Joint p1, Joint p2)
         {
             return Math.Sqrt(
                 Math.Pow(p1.Position.X - p2.Position.X, 2) +
                 Math.Pow(p1.Position.Y - p2.Position.Y, 2) +
                 Math.Pow(p1.Position.Z - p2.Position.Z, 2));
         }
-
-        public double distanceToBody(CameraSpacePoint point) {
-            return Math.Sqrt(
-                point.X * point.X +
-                point.Y * point.Y +
-                point.Z * point.Z
-                );
-        }
-
-        //public void drawPoint(int index)
-        //{
-        //    for (int i = 0; i < 20; i += 1)
-        //    {
-        //        this.bodyIndexPixels[index + i] = 0xFFFF4000;
-        //        this.bodyIndexPixels[index - i] = 0xFFFF4000;
-        //        this.bodyIndexPixels[index + 512 + i] = 0xFFFF4000;
-        //        this.bodyIndexPixels[index + 512 - i] = 0xFFFF4000;
-        //    }
-        //}
 
         private void DrawBody(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, DrawingContext drawingContext, Pen drawingPen)
         {
@@ -522,11 +481,14 @@ namespace HonsProjectKinect
             drawingContext.DrawLine(drawPen, jointPoints[jointType0], jointPoints[jointType1]);
         }
 
-        private unsafe void ProcessBodyIndexFrameData(IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize)
+        private unsafe void ProcessDepthBodyIndexFrameData(IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize, IntPtr depthFrameData, uint depthFrameDataSize, ushort minDepth)
         {
             byte* frameData = (byte*)bodyIndexFrameData;
             int count = 0;
-            // convert body index to a visual representation
+
+            ushort* frameDataDepth = (ushort*)depthFrameData;
+
+
             for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
             {
                 if (frameData[i] < 5)
@@ -538,37 +500,21 @@ namespace HonsProjectKinect
                 {
                     this.bodyIndexPixels[i] = 0x00000000;
                 }
+
+                ushort depth = frameDataDepth[i];
+                this.depthPixels[i] = (byte)(depth >= minDepth && depth <= ushort.MaxValue ? (depth / MapDepthToByte) : 0);
             }
+            bodyIndexSizeData.Content = count;
         }
 
-        private unsafe void ProcessDepthFrameData(IntPtr depthFrameData, uint depthFrameDataSize, ushort minDepth, ushort maxDepth)
-        {
-            // depth frame data is a 16 bit value
-            ushort* frameData = (ushort*)depthFrameData;
-
-            // convert depth to a visual representation
-            for (int i = 0; i < (int)(depthFrameDataSize / this.depthFrameDescription.BytesPerPixel); ++i)
-            {
-                // Get the depth for this pixel
-                ushort depth = frameData[i];
-
-                // To convert to a byte, we're mapping the depth value to the byte range.
-                // Values outside the reliable depth range are mapped to 0 (black).
-                this.depthPixels[i] = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / MapDepthToByte) : 0);
-            }
-        }
-
-        private void RenderBodyIndexPixels()
+        private void RenderBodyIndexDepthPixels()
         {
             this.bodyIndexBitmap.WritePixels(
                 new Int32Rect(0, 0, this.bodyIndexBitmap.PixelWidth, this.bodyIndexBitmap.PixelHeight),
                 this.bodyIndexPixels,
                 this.bodyIndexBitmap.PixelWidth * (int)BytesPerPixel,
                 0);
-        }
 
-        private void RenderDepthPixels()
-        {
             this.depthBitmap.WritePixels(
                 new Int32Rect(0, 0, this.depthBitmap.PixelWidth, this.depthBitmap.PixelHeight),
                 this.depthPixels,
