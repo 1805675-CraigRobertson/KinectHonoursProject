@@ -236,13 +236,26 @@ namespace HonsProjectKinect
                                 }
 
                                 //Calculate height of body using Skeleton API
-                                getSkeletonHeight(joints);
+                                double totalSkeletonHeight = getSkeletonHeight(joints);
 
                                 //Get Widest part of body in metres
-                                getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+
+                                var x = Array.Exists(bodyIndexPixels, val => val.Equals(BodyColor[i]));
+                                if (x.Equals(true))
+                                {
+                                    TextBlock Heightlabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
+                                    if (Heightlabel != null) {
+                                        UnregisterName(Heightlabel.Name);
+                                        segmentationView.Children.Remove(Heightlabel);
+                                    }
+                                    double segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth , i);
+                                }
 
                                 //Get height of body using segmentation
-                                getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //double segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                
+                                //averageHeightData.Content = ((totalSkeletonHeight + segmentationHeight)/2).ToString("0.###") + " m";
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
@@ -283,21 +296,6 @@ namespace HonsProjectKinect
             }
         }
 
-        public void TranslateTB(double X, double Y, string Text, string Method) {
-            switch(Method){
-                case "height":
-                    TranslateTransform translateHeight = new TranslateTransform(X,Y - 50);
-                    heightTB.RenderTransform = translateHeight;
-                    heightTB.DataContext = new segmentationHeightText() { heightTextData = Text };
-                    break;
-                case "width":
-                    TranslateTransform translateWidth = new TranslateTransform(X,Y - 50);
-                    widthTB.RenderTransform = translateWidth;
-                    widthTB.DataContext = new segmentationWidthText() { widthTextData = Text };
-                    break;
-            }
-        }
-
         public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
         {
             List<int> tempOf512 = new List<int>();
@@ -334,8 +332,6 @@ namespace HonsProjectKinect
 
             var lastPoint = (511 - getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512));
 
-            //Console.WriteLine("first: {0}      last: {1}    diff{2}", firstPoint, lastPoint, lastPoint - firstPoint);
-
             getYAxisRange.Reverse();
             if (firstPoint != -1)
             {
@@ -347,25 +343,19 @@ namespace HonsProjectKinect
                 double YCoor2 = (lastPoint / frameWidth);
                 double ZCoor2 = frameDataDepth[lastPoint];
 
-                //Console.WriteLine("First:   {0}      {1}     {2}", XCoor, YCoor, ZCoor);
-                //Console.WriteLine("Last:    {0}      {1}     {2}", XCoor2, YCoor2, ZCoor2);
-
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                string segmentationWidth = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
-                widestMeasureData.Content = segmentationWidth;
-                TranslateTB(XCoor, YCoor, segmentationWidth, "width");
+                double segmentationWidth = getLength(firstIndex, lastIndex);
+                widestMeasureData.Content = segmentationWidth.ToString("0.###") + " m";
+                //TranslateTB(XCoor, YCoor, segmentationWidth, "width");
             }
         }
 
-        public unsafe void getHeightSegmentation(double frameWidth, ushort* frameDataDepth)
+        public unsafe double getHeightSegmentation(double frameWidth, ushort* frameDataDepth, int bodyIndexValue)
         {
-            var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
-            Array.Reverse(bodyIndexPixels);
-
-            var lastIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val > 0);
-            lastIndexOfBody = 217007 - lastIndexOfBody;
+            var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val.Equals(BodyColor[bodyIndexValue]));
+            var lastIndexOfBody = Array.FindLastIndex(bodyIndexPixels, val => val.Equals(BodyColor[bodyIndexValue]));
 
             if (firstIndexOfBody != -1)
             {
@@ -375,17 +365,29 @@ namespace HonsProjectKinect
 
                 double XCoor2 = Math.Floor(lastIndexOfBody % frameWidth);
                 double YCoor2 = lastIndexOfBody / frameWidth;
-                double ZCoor2 = frameDataDepth[lastIndexOfBody - 511];
+                double ZCoor2 = frameDataDepth[lastIndexOfBody];
 
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
-                string segmentationHeight = getLength(firstIndex, lastIndex).ToString("0.###") + " m";
+                double segmentationHeight = getLength(firstIndex, lastIndex);
 
-                heightLabelData.Content = segmentationHeight;
-                TranslateTB(XCoor, YCoor, segmentationHeight, "height");
-                Array.Reverse(bodyIndexPixels);
+                heightLabelData.Content = segmentationHeight.ToString("0.###") + " m";
+
+                TextBlock textBlock = new TextBlock();
+                textBlock.Foreground = Brushes.Green;
+                textBlock.FontSize = 30;
+                textBlock.Name = "heightOverlay"+bodyIndexValue;
+                RegisterName(textBlock.Name, textBlock);
+
+                textBlock.Text = segmentationHeight.ToString("0.###") + " m";
+                segmentationView.Children.Add(textBlock);
+
+                textBlock.RenderTransform = new TranslateTransform(XCoor, YCoor - 50);
+
+                return segmentationHeight;
             }
+            return 0;
         }
 
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
@@ -406,7 +408,7 @@ namespace HonsProjectKinect
                 Math.Pow(p1.Z - p2.Z, 2));
         }
 
-        public void getSkeletonHeight(IReadOnlyDictionary<JointType, Joint> joints)
+        public double getSkeletonHeight(IReadOnlyDictionary<JointType, Joint> joints)
         {
             var head = joints[JointType.Head];
             var neck = joints[JointType.Neck];
@@ -431,6 +433,8 @@ namespace HonsProjectKinect
             double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
 
             skeletonHeightData.Content = totalHeight.ToString("0.###") + " m";
+
+            return totalHeight;
         }
 
         public static double getSkeletonLength(Joint p1, Joint p2)
@@ -500,7 +504,6 @@ namespace HonsProjectKinect
             int count = 0;
 
             ushort* frameDataDepth = (ushort*)depthFrameData;
-
 
             for (int i = 0; i < (int)bodyIndexFrameDataSize; ++i)
             {

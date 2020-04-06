@@ -12,15 +12,13 @@
         </Grid.RowDefinitions>
         <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512" Height="424" Width="512">
             <Grid>
-                <Image Source="{Binding ImageSourceDepth}" Stretch="UniformToFill" Height="424" Width="512"/>
-                <Image Source="{Binding ImageSource}" Stretch="UniformToFill" Height="424" Width="512"/>
+                <Image Source="{Binding ImageSourceDepth}" Stretch="UniformToFill" />
+                <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
             </Grid>
         </Viewbox>
         <Viewbox Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" MinHeight="424" MinWidth="512" Height="424" Width="512">
-            <Grid>
+            <Grid x:Name="segmentationView">
                 <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" MinHeight="424" MinWidth="512"/>
-                <TextBlock x:Name="heightTB" Margin="0,0,426,392" TextWrapping="Wrap" Text="{Binding heightTextData}" Foreground="Green" FontSize="25" />
-                <TextBlock x:Name="widthTB" Margin="0,0,426,392" TextWrapping="Wrap" Text="{Binding widthTextData}" Foreground="Green" FontSize="25" />
             </Grid>
         </Viewbox>
         <Label x:Name="heightLabelData" Content="0" HorizontalAlignment="Left" Margin="130,-92,0,0" VerticalAlignment="Top" Width="155"/>
@@ -31,5 +29,7 @@
         <Label x:Name="widestMeasureData" Content="0" HorizontalAlignment="Left" Margin="130,-30,0,0" VerticalAlignment="Top" Width="155"/>
         <Label x:Name="bodyIndexSize" Content="Body Index Size: " HorizontalAlignment="Left" Margin="290,-92,0,0" VerticalAlignment="Top"/>
         <Label x:Name="bodyIndexSizeData" Content="0" HorizontalAlignment="Left" Margin="410,-92,0,0" VerticalAlignment="Top" Width="155"/>
+        <Label x:Name="averageHeight" Content="Average Height: " HorizontalAlignment="Left" Margin="290,-36,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="averageHeightData" Content="0" HorizontalAlignment="Left" Margin="410,-36,0,0" VerticalAlignment="Top" Width="155"/>
     </Grid>
 </Window>
