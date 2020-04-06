@@ -239,22 +239,25 @@ namespace HonsProjectKinect
                                 double totalSkeletonHeight = getSkeletonHeight(joints);
 
                                 //Get Widest part of body in metres
-                                //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
+                                //getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
 
+                                //Get height of body using segmentation
                                 var x = Array.Exists(bodyIndexPixels, val => val.Equals(BodyColor[i]));
                                 if (x.Equals(true))
                                 {
                                     TextBlock Heightlabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
-                                    if (Heightlabel != null) {
+                                    TextBlock Widthlabel = (TextBlock)segmentationView.FindName("widthOverlay" + i);
+                                    if (Heightlabel != null)
+                                    {
                                         UnregisterName(Heightlabel.Name);
                                         segmentationView.Children.Remove(Heightlabel);
+                                        UnregisterName(Widthlabel.Name);
+                                        segmentationView.Children.Remove(Widthlabel);
                                     }
-                                    double segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth , i);
+                                    double segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
+                                    getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
                                 }
 
-                                //Get height of body using segmentation
-                                //double segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth);
-                                
                                 //averageHeightData.Content = ((totalSkeletonHeight + segmentationHeight)/2).ToString("0.###") + " m";
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
@@ -296,9 +299,9 @@ namespace HonsProjectKinect
             }
         }
 
-        public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth)
+        public unsafe void getWidestY(double frameWidth, ushort* frameDataDepth, int bodyIndexValue)
         {
-            List<int> tempOf512 = new List<int>();
+            List<int> Yaxis512pixels = new List<int>();
 
             List<uint> bodyIndexPixelsList = new List<uint>();
             bodyIndexPixelsList.AddRange(bodyIndexPixels);
@@ -315,24 +318,20 @@ namespace HonsProjectKinect
                 }
                 var bodyIndexOccu = 512 - count;
 
-                tempOf512.Add(bodyIndexOccu);
+                Yaxis512pixels.Add(bodyIndexOccu);
             }
 
-            int maxValue = tempOf512.Max();
-            int yAxisValue = tempOf512.IndexOf(maxValue);
+            int maxValue = Yaxis512pixels.Max();
+            int yAxisValue = Yaxis512pixels.IndexOf(maxValue);
 
-            tempOf512.Clear();
+            Yaxis512pixels.Clear();
 
             //Get first & last point indexes
             var getYAxisRange = bodyIndexPixelsList.GetRange(yAxisValue * 512, 512);
 
-            var firstPoint = getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512);
-            
-            getYAxisRange.Reverse();
+            var firstPoint = getYAxisRange.FindIndex(val => val.Equals(BodyColor[bodyIndexValue])) + (yAxisValue * 512);
+            var lastPoint = (getYAxisRange.FindLastIndex(val => val.Equals(BodyColor[bodyIndexValue])) + (yAxisValue * 512));
 
-            var lastPoint = (511 - getYAxisRange.FindIndex(val => val > 0) + (yAxisValue * 512));
-
-            getYAxisRange.Reverse();
             if (firstPoint != -1)
             {
                 double XCoor = (Math.Floor(firstPoint % frameWidth));
@@ -348,7 +347,7 @@ namespace HonsProjectKinect
 
                 double segmentationWidth = getLength(firstIndex, lastIndex);
                 widestMeasureData.Content = segmentationWidth.ToString("0.###") + " m";
-                //TranslateTB(XCoor, YCoor, segmentationWidth, "width");
+                DrawOnSegmentationViewWidth(bodyIndexValue, segmentationWidth, XCoor, YCoor);
             }
         }
 
@@ -374,20 +373,38 @@ namespace HonsProjectKinect
 
                 heightLabelData.Content = segmentationHeight.ToString("0.###") + " m";
 
-                TextBlock textBlock = new TextBlock();
-                textBlock.Foreground = Brushes.Green;
-                textBlock.FontSize = 30;
-                textBlock.Name = "heightOverlay"+bodyIndexValue;
-                RegisterName(textBlock.Name, textBlock);
-
-                textBlock.Text = segmentationHeight.ToString("0.###") + " m";
-                segmentationView.Children.Add(textBlock);
-
-                textBlock.RenderTransform = new TranslateTransform(XCoor, YCoor - 50);
+                DrawOnSegmentationViewHeight(bodyIndexValue, segmentationHeight, XCoor, YCoor);
 
                 return segmentationHeight;
             }
             return 0;
+        }
+
+        public void DrawOnSegmentationViewHeight(double bodyIndexValue, double labelText, double X, double Y) {
+            TextBlock textBlockHeight = new TextBlock();
+            textBlockHeight.Foreground = Brushes.Green;
+            textBlockHeight.FontSize = 20;
+            textBlockHeight.Name = "heightOverlay" + bodyIndexValue;
+            RegisterName(textBlockHeight.Name, textBlockHeight);
+
+            textBlockHeight.Text = labelText.ToString("0.###") + " m";
+            segmentationView.Children.Add(textBlockHeight);
+
+            textBlockHeight.RenderTransform = new TranslateTransform(X, Y - 50);
+        }
+
+        public void DrawOnSegmentationViewWidth(double bodyIndexValue, double labelText, double X, double Y)
+        {
+            TextBlock textBlockWidth = new TextBlock();
+            textBlockWidth.Foreground = Brushes.Green;
+            textBlockWidth.FontSize = 20;
+            textBlockWidth.Name = "widthOverlay" + bodyIndexValue;
+            RegisterName(textBlockWidth.Name, textBlockWidth);
+
+            textBlockWidth.Text = labelText.ToString("0.###") + " m";
+            segmentationView.Children.Add(textBlockWidth);
+
+            textBlockWidth.RenderTransform = new TranslateTransform(X, Y - 50);
         }
 
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)

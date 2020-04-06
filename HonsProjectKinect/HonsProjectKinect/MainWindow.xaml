@@ -19,6 +19,7 @@
         <Viewbox Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" MinHeight="424" MinWidth="512" Height="424" Width="512">
             <Grid x:Name="segmentationView">
                 <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" MinHeight="424" MinWidth="512"/>
+                <TextBlock x:Name="widthTB" Margin="0,0,426,392" TextWrapping="Wrap" Text="{Binding widthTextData}" Foreground="Green" FontSize="17.5" />
             </Grid>
         </Viewbox>
         <Label x:Name="heightLabelData" Content="0" HorizontalAlignment="Left" Margin="130,-92,0,0" VerticalAlignment="Top" Width="155"/>
