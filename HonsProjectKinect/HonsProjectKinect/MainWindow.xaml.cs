@@ -236,30 +236,25 @@ namespace HonsProjectKinect
                                 }
 
                                 //Calculate height of body using Skeleton API
-                                double totalSkeletonHeight = getSkeletonHeight(joints);
+                                //double totalSkeletonHeight = getSkeletonHeight(joints);
 
                                 //Get height and width of body using segmentation
                                 var x = Array.Exists(bodyIndexPixels, val => val.Equals(BodyColor[i]));
                                 if (x.Equals(true))
                                 {
-                                    TextBlock Heightlabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
-                                    //TextBlock Widthlabel = (TextBlock)segmentationView.FindName("widthOverlay" + i);
-                                    if (Heightlabel != null)
+                                    TextBlock Overlaylabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
+                                    if (Overlaylabel != null)
                                     {
-                                        UnregisterName(Heightlabel.Name);
-                                        segmentationView.Children.Remove(Heightlabel);
-                                        //UnregisterName(Widthlabel.Name);
-                                        //segmentationView.Children.Remove(Widthlabel);
+                                        UnregisterName(Overlaylabel.Name);
+                                        //segmentationView.Children.Remove(Overlaylabel);
+                                        segmentationView.Children.RemoveRange(1,segmentationView.Children.Count);
                                     }
                                     Tuple<double,double,double> segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
                                     double segmentationWidth = getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
-                                    drawOnSegmentedDisplay(i, segmentationHeight.Item1, segmentationWidth, segmentationHeight.Item2, segmentationHeight.Item3);
+                                    double bodySize = Array.FindAll(bodyIndexPixels, val => val.Equals(BodyColor[i])).Length;
+
+                                    drawOnSegmentedDisplay(i, segmentationHeight.Item1, segmentationWidth, 0.0, segmentationHeight.Item2, segmentationHeight.Item3);
                                 }
-
-                                //var bodySize = bodyIndexPixels.Where(value => value.Equals(BodyColor[i])).Count();
-                                //bodyIndexSizeData.Content = bodySize;
-
-                                //averageHeightData.Content = ((totalSkeletonHeight + segmentationHeight)/2).ToString("0.###") + " m";
 
                                 this.DrawBody(joints, jointPoints, dc, drawPen);
                             }
@@ -347,8 +342,6 @@ namespace HonsProjectKinect
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
                 double segmentationWidth = getLength(firstIndex, lastIndex);
-                widestMeasureData.Content = segmentationWidth.ToString("0.###") + " m";
-                //DrawOnSegmentationViewWidth(bodyIndexValue, segmentationWidth, XCoor, YCoor);
                 return segmentationWidth;
             }
             return 0.0;
@@ -374,28 +367,24 @@ namespace HonsProjectKinect
 
                 double segmentationHeight = getLength(firstIndex, lastIndex);
 
-                heightLabelData.Content = segmentationHeight.ToString("0.###") + " m";
-
-                //DrawOnSegmentationViewHeight(bodyIndexValue, segmentationHeight, XCoor, YCoor);
-
                 return Tuple.Create(segmentationHeight, XCoor, YCoor);
             }
             return Tuple.Create(0.0,0.0,0.0);
         }
 
-        public void drawOnSegmentedDisplay(int bodyIndexValue, double height, double width, double X, double Y)
+        public void drawOnSegmentedDisplay(int bodyIndexValue, double height, double width, double bodySize, double X, double Y)
         {
-            TextBlock textBlockHeight = new TextBlock();
-            textBlockHeight.Foreground = Brushes.Green;
-            textBlockHeight.FontSize = 20;
-            textBlockHeight.Name = "heightOverlay" + bodyIndexValue;
-            RegisterName(textBlockHeight.Name, textBlockHeight);
+            TextBlock textBlockOverlay = new TextBlock();
+            textBlockOverlay.FontSize = 15;
+            textBlockOverlay.Name = "heightOverlay" + bodyIndexValue;
+            RegisterName(textBlockOverlay.Name, textBlockOverlay);
 
-            textBlockHeight.Text = "Height: " + height.ToString("0.###") + " m" + "\n" +
-                                    "Width: " + width.ToString("0.###") + " m";
-            segmentationView.Children.Add(textBlockHeight);
+            textBlockOverlay.Text = "Height: " + height.ToString("0.###") + " m" + "\n" +
+                                    "Width: " + width.ToString("0.###") + " m" + "\n" +
+                                    "Size: " + bodySize.ToString("0.###");
+            segmentationView.Children.Add(textBlockOverlay);
 
-            textBlockHeight.RenderTransform = new TranslateTransform(X, Y - 50);
+            textBlockOverlay.RenderTransform = new TranslateTransform(X, Y - 60);
 
         }
 
@@ -440,9 +429,6 @@ namespace HonsProjectKinect
             double rightLegHeight = getSkeletonLength(hipRight, kneeRight) + getSkeletonLength(kneeRight, ankleRight) + getSkeletonLength(ankleRight, footRight);
 
             double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
-
-            skeletonHeightData.Content = totalHeight.ToString("0.###") + " m";
-
             return totalHeight;
         }
 
@@ -510,7 +496,6 @@ namespace HonsProjectKinect
         private unsafe void ProcessDepthBodyIndexFrameData(IntPtr bodyIndexFrameData, uint bodyIndexFrameDataSize, IntPtr depthFrameData, uint depthFrameDataSize, ushort minDepth)
         {
             byte* frameData = (byte*)bodyIndexFrameData;
-            int count = 0;
 
             ushort* frameDataDepth = (ushort*)depthFrameData;
 
@@ -518,7 +503,6 @@ namespace HonsProjectKinect
             {
                 if (frameData[i] < 5)
                 {
-                    count += 1;
                     this.bodyIndexPixels[i] = BodyColor[frameData[i]];
                 }
                 else
@@ -529,8 +513,6 @@ namespace HonsProjectKinect
                 ushort depth = frameDataDepth[i];
                 this.depthPixels[i] = (byte)(depth >= minDepth && depth <= ushort.MaxValue ? (depth / MapDepthToByte) : 0);
             }
-
-            bodyIndexSizeData.Content = count;
         }
 
         private void RenderBodyIndexDepthPixels()
