@@ -251,7 +251,7 @@ namespace HonsProjectKinect
                                     }
                                     Tuple<double,double,double> segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
                                     double segmentationWidth = getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
-                                    double bodySize = Array.FindAll(bodyIndexPixels, val => val.Equals(BodyColor[i])).Length;
+                                    //double bodySize = Array.FindAll(bodyIndexPixels, val => val.Equals(BodyColor[i])).Length;
 
                                     drawOnSegmentedDisplay(i, segmentationHeight.Item1, segmentationWidth, 0.0, segmentationHeight.Item2, segmentationHeight.Item3);
                                 }
@@ -375,17 +375,28 @@ namespace HonsProjectKinect
         public void drawOnSegmentedDisplay(int bodyIndexValue, double height, double width, double bodySize, double X, double Y)
         {
             TextBlock textBlockOverlay = new TextBlock();
-            textBlockOverlay.FontSize = 15;
+            textBlockOverlay.Foreground = Brushes.White;
+            double myHeight;
+            double myWidth;
+            if (Double.TryParse(txtBoxHeight.Text, out myHeight) | Double.TryParse(txtBoxWidth.Text, out myWidth))
+            {
+                if (height > myHeight || width > myWidth)
+                {
+                    textBlockOverlay.Foreground = Brushes.Red;
+                }
+            }
+
+            textBlockOverlay.FontSize = 12;
             textBlockOverlay.Name = "heightOverlay" + bodyIndexValue;
             RegisterName(textBlockOverlay.Name, textBlockOverlay);
 
-            textBlockOverlay.Text = "Height: " + height.ToString("0.###") + " m" + "\n" +
+            textBlockOverlay.Text = "BodyIndex: " + bodyIndexValue + "\n" + 
+                                    "Height: " + height.ToString("0.###") + " m" + "\n" +
                                     "Width: " + width.ToString("0.###") + " m" + "\n" +
                                     "Size: " + bodySize.ToString("0.###");
             segmentationView.Children.Add(textBlockOverlay);
 
-            textBlockOverlay.RenderTransform = new TranslateTransform(X, Y - 60);
-
+            textBlockOverlay.RenderTransform = new TranslateTransform(X, Y - 65);
         }
 
         public CameraSpacePoint xyToCameraSpacePoint(float X, float Y, ushort Z)
@@ -589,6 +600,11 @@ namespace HonsProjectKinect
                 this.kinectSensor.Close();
                 this.kinectSensor = null;
             }
+        }
+
+        private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Keyboard.ClearFocus();
         }  
     }
 }
