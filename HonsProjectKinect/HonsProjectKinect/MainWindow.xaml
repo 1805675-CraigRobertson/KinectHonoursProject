@@ -3,34 +3,35 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MainWindow" Height="600" Width="1075" MinHeight="600" MinWidth="1075" 
         Closing="MainWindow_Closing" Loaded="MainWindow_Loaded">
-    <Grid Margin="10 100 10 0">
+    <Grid Margin="10,0,9.8,0.4">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Viewbox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512" Height="424" Width="512">
+        <Viewbox Grid.Row="1" HorizontalAlignment="Left" MinHeight="424" MaxWidth="512" Height="424" Width="512" Margin="0,135,0,10.6">
             <Grid>
                 <Image Source="{Binding ImageSourceDepth}" Stretch="UniformToFill" />
                 <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
             </Grid>
         </Viewbox>
-        <Viewbox Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" MinHeight="424" MinWidth="512" Height="424" Width="512">
+        <Viewbox Grid.Row="1" HorizontalAlignment="Right" MinHeight="424" MinWidth="512" Height="424" Width="512" Margin="0,135,0,10.6">
             <Grid x:Name="segmentationView">
                 <Image Source="{Binding ImageSourceBodyIndex}" Stretch="UniformToFill" MinHeight="424" MinWidth="512"/>
                 <TextBlock x:Name="widthTB" Margin="0,0,426,392" TextWrapping="Wrap" Text="{Binding widthTextData}" Foreground="Green" FontSize="17.5" />
             </Grid>
         </Viewbox>
-        <Label x:Name="heightLabelData" Content="0" HorizontalAlignment="Left" Margin="130,-92,0,0" VerticalAlignment="Top" Width="155"/>
-        <Label x:Name="heightLabel" Content="Segmentation Height: " HorizontalAlignment="Left" Margin="0,-92,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="skeletonHeight" Content="Skeleton Height: " HorizontalAlignment="Left" Margin="0,-61,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="skeletonHeightData" Content="0" HorizontalAlignment="Left" Margin="130,-61,0,0" VerticalAlignment="Top" Width="155"/>
-        <Label x:Name="widestMeasure" Content="Segmentation Width: " HorizontalAlignment="Left" Margin="0,-30,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="widestMeasureData" Content="0" HorizontalAlignment="Left" Margin="130,-30,0,0" VerticalAlignment="Top" Width="155"/>
-        <Label x:Name="bodyIndexSize" Content="Body Index Size: " HorizontalAlignment="Left" Margin="290,-92,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="bodyIndexSizeData" Content="0" HorizontalAlignment="Left" Margin="410,-92,0,0" VerticalAlignment="Top" Width="155"/>
-        <Label x:Name="averageHeight" Content="Average Height: " HorizontalAlignment="Left" Margin="290,-36,0,0" VerticalAlignment="Top"/>
-        <Label x:Name="averageHeightData" Content="0" HorizontalAlignment="Left" Margin="410,-36,0,0" VerticalAlignment="Top" Width="155"/>
+        <Label x:Name="heightLabelData" Content="0" HorizontalAlignment="Left" Margin="131,-1,0,0" VerticalAlignment="Top" Width="155" Grid.RowSpan="2"/>
+        <Label x:Name="heightLabel" Content="Segmentation Height: " HorizontalAlignment="Left" Margin="1,-1,0,0" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Label x:Name="skeletonHeight" Content="Skeleton Height: " HorizontalAlignment="Left" Margin="1,30,0,0" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Label x:Name="skeletonHeightData" Content="0" HorizontalAlignment="Left" Margin="131,30,0,0" VerticalAlignment="Top" Width="155" Grid.RowSpan="2"/>
+        <Label x:Name="widestMeasure" Content="Segmentation Width: " HorizontalAlignment="Left" Margin="1,61,0,0" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Label x:Name="widestMeasureData" Content="0" HorizontalAlignment="Left" Margin="131,61,0,0" VerticalAlignment="Top" Width="155" Grid.RowSpan="2"/>
+        <Label x:Name="bodyIndexSize" Content="Body Index Size: " HorizontalAlignment="Left" Margin="291,-1,0,0" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Label x:Name="bodyIndexSizeData" Content="0" HorizontalAlignment="Left" Margin="411,-1,0,0" VerticalAlignment="Top" Width="155" Grid.RowSpan="2"/>
+        <Label x:Name="averageHeight" Content="Average Height: " HorizontalAlignment="Left" Margin="291,55,0,0" VerticalAlignment="Top" Grid.RowSpan="2"/>
+        <Label x:Name="averageHeightData" Content="0" HorizontalAlignment="Left" Margin="411,55,0,0" VerticalAlignment="Top" Width="155" Grid.RowSpan="2"/>
+
     </Grid>
 </Window>
