@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,7 +30,7 @@ namespace HonsProjectKinect
             0x40FFFF00,
             0xFF40FF00,
             0xFF808000,
-        }; 
+        };
 
         //Skeleton
         private const double HandSize = 30;
@@ -39,8 +40,8 @@ namespace HonsProjectKinect
         private readonly Brush handClosedBrush = new SolidColorBrush(Color.FromArgb(128, 255, 0, 0));
         private readonly Brush handOpenBrush = new SolidColorBrush(Color.FromArgb(128, 0, 255, 0));
         private readonly Brush handLassoBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
-        private readonly Brush trackedJointBrush = new SolidColorBrush(Color.FromArgb(255, 68, 192, 68));       
-        private readonly Brush inferredJointBrush = Brushes.Yellow;       
+        private readonly Brush trackedJointBrush = new SolidColorBrush(Color.FromArgb(255, 68, 192, 68));
+        private readonly Brush inferredJointBrush = Brushes.Yellow;
         private readonly Pen inferredBonePen = new Pen(Brushes.Gray, 1);
         private DrawingGroup drawingGroup;
         private DrawingImage imageSource;
@@ -54,7 +55,7 @@ namespace HonsProjectKinect
 
         //MultiFrame
         private MultiSourceFrameReader multiFrameSourceReader = null;
-        
+
         //BodyIndex 
         private FrameDescription bodyIndexFrameDescription = null;
         private WriteableBitmap bodyIndexBitmap = null;
@@ -146,7 +147,8 @@ namespace HonsProjectKinect
             InitializeComponent();
         }
 
-        private unsafe void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e) {
+        private unsafe void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e)
+        {
             BodyIndexFrame bodyIndexFrame = null;
             BodyFrame bodyFrame = null;
             DepthFrame depthFrame = null;
@@ -161,122 +163,117 @@ namespace HonsProjectKinect
             }
 
             //Try acquiring frames
-            try {
+            try
+            {
                 bodyIndexFrame = multiSourceFrame.BodyIndexFrameReference.AcquireFrame();
                 bodyFrame = multiSourceFrame.BodyFrameReference.AcquireFrame();
                 depthFrame = multiSourceFrame.DepthFrameReference.AcquireFrame();
 
+                //Check if frames are null
                 if ((bodyIndexFrame == null) || (bodyFrame == null) || (depthFrame == null))
                 {
                     return;
                 }
 
-                Microsoft.Kinect.KinectBuffer bodyIndexBuffer = bodyIndexFrame.LockImageBuffer();
-                Microsoft.Kinect.KinectBuffer depthBuffer = depthFrame.LockImageBuffer();
-
                 bool bodyIndexFrameProcessed = false;
-                bool dataReceived = false;
 
-                //BodyIndex verify data and write to bitmap 
-                if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
-                    (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
+                //Populate the body index array + display the depth image
+                using (KinectBuffer bodyIndexBuffer = bodyIndexFrame.LockImageBuffer())
                 {
-                    this.ProcessDepthBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size, depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance);
-                    bodyIndexFrameProcessed = true;
+                    using (Microsoft.Kinect.KinectBuffer depthBuffer = depthFrame.LockImageBuffer())
+                    {
+                        if (((this.bodyIndexFrameDescription.Width * this.bodyIndexFrameDescription.Height) == bodyIndexBuffer.Size) &&
+                             (this.bodyIndexFrameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (this.bodyIndexFrameDescription.Height == this.bodyIndexBitmap.PixelHeight))
+                        {
+                            this.ProcessDepthBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size, depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance);
+                            bodyIndexFrameProcessed = true;
+                        }
+                    }
                 }
 
-                //Check if BodyFrame null when add new body
-                if (this.bodies == null)
+                //BodyIndex render pixels
+                if (bodyIndexFrameProcessed)
                 {
-                    this.bodies = new Body[bodyFrame.BodyCount];
+                    this.RenderBodyIndexDepthPixels();
+                }
+                bodyIndexFrame.Dispose();
+                bodyIndexFrame = null;
+
+                //Add body to Array for skeleton 
+                if (bodyFrame != null)
+                {
+                    if (this.bodies == null)
+                    {
+                        this.bodies = new Body[bodyFrame.BodyCount];
+                    }
+                    bodyFrame.GetAndRefreshBodyData(this.bodies);
                 }
 
-                bodyFrame.GetAndRefreshBodyData(this.bodies);
-                dataReceived = true;
-
-                if(dataReceived){
-                    //Depth
-                    ushort* frameDataDepth = (ushort*)depthBuffer.UnderlyingBuffer;
-                    //BodyIndex
-                    byte* frameDataBodyIndex = (byte*)bodyIndexBuffer.UnderlyingBuffer;
-
-                    DrawingContext dc = this.drawingGroup.Open();
-
+                //Draw the skeleton on the display
+                using (DrawingContext dc = this.drawingGroup.Open())
+                {
                     dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
-
                     int penIndex = 0;
+                    //iterate through all skeleton models - dependant on people in view
+                    foreach (Body body in this.bodies)
+                    {
+                        Pen drawPen = this.bodyColors[penIndex++];
+                        if (body.IsTracked)
+                        {
+                            IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
-                    Pen drawPen = this.bodyColors[penIndex++];
+                            // convert the joint points to depth (display) space
+                            Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
 
+                            foreach (JointType jointType in joints.Keys)
+                            {
+                                CameraSpacePoint position = joints[jointType].Position;
+                                if (position.Z < 0)
+                                {
+                                    position.Z = InferredZPositionClamp;
+                                }
+
+                                DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
+                                jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
+                            }
+                            this.DrawBody(joints, jointPoints, dc, drawPen);
+                        }
+                    }
+                    this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
+                }
+
+                //get the depth frames and perform the Height and Width calculations
+                using (KinectBuffer depthFrameData = depthFrame.LockImageBuffer())
+                {
+                    ushort* frameDataDepth = (ushort*)depthFrameData.UnderlyingBuffer;
+
+                    //iterate through all tracked bodies - uses skeleton to get amount of body indexes
                     for (int i = 0; i < bodyFrame.BodyCount; i++)
                     {
                         if (this.bodies[i].IsTracked)
                         {
-                            var body = this.bodies[i];
-
-                            if (body.IsTracked)
+                            //creates the textbloxk that appears over top individuals heads
+                            TextBlock Overlaylabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
+                            if (Overlaylabel != null)
                             {
-                                IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
-
-                                // convert the joint points to depth (display) space
-                                Dictionary<JointType, Point> jointPoints = new Dictionary<JointType, Point>();
-
-                                foreach (JointType jointType in joints.Keys)
-                                {
-                                    // sometimes the depth(Z) of an inferred joint may show as negative
-                                    // clamp down to 0.1f to prevent coordinatemapper from returning (-Infinity, -Infinity)
-                                    CameraSpacePoint position = joints[jointType].Position;
-                                    if (position.Z < 0)
-                                    {
-                                        position.Z = InferredZPositionClamp;
-                                    }
-
-                                    DepthSpacePoint depthSpacePoint = this.coordinateMapper.MapCameraPointToDepthSpace(position);
-                                    jointPoints[jointType] = new Point(depthSpacePoint.X, depthSpacePoint.Y);
-                                }
-
-                                //Calculate height of body using Skeleton API
-                                //double totalSkeletonHeight = getSkeletonHeight(joints);
-
-                                //Get height and width of body using segmentation
-                                var x = Array.Exists(bodyIndexPixels, val => val.Equals(BodyColor[i]));
-                                if (x.Equals(true))
-                                {
-                                    TextBlock Overlaylabel = (TextBlock)segmentationView.FindName("heightOverlay" + i);
-                                    if (Overlaylabel != null)
-                                    {
-                                        UnregisterName(Overlaylabel.Name);
-                                        //segmentationView.Children.Remove(Overlaylabel);
-                                        segmentationView.Children.RemoveRange(1,segmentationView.Children.Count);
-                                    }
-                                    Tuple<double,double,double> segmentationHeight = getHeightSegmentation(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
-                                    double segmentationWidth = getWidestY(bodyIndexFrame.FrameDescription.Width, frameDataDepth, i);
-                                    //double bodySize = Array.FindAll(bodyIndexPixels, val => val.Equals(BodyColor[i])).Length;
-
-                                    drawOnSegmentedDisplay(i, segmentationHeight.Item1, segmentationWidth, 0.0, segmentationHeight.Item2, segmentationHeight.Item3);
-                                }
-
-                                this.DrawBody(joints, jointPoints, dc, drawPen);
+                                UnregisterName(Overlaylabel.Name);
+                                segmentationView.Children.Remove(Overlaylabel);
                             }
+
+                            //Get the Segmentation Height of a individual depending on variable 'i'
+                            Tuple<double, double, double> segmentationHeight = getHeightSegmentation(depthFrame.FrameDescription.Width, frameDataDepth, i);
+
+                            //Get the Segmentation Width of a individual depending on variable 'i'
+                            double segmentationWidth = getWidestY(depthFrame.FrameDescription.Width, frameDataDepth, i);
+
+                            //Draw the height and width on the display using the textblocks
+                            drawOnSegmentedDisplay(i, segmentationHeight.Item1, segmentationWidth, segmentationHeight.Item2, segmentationHeight.Item3);
                         }
                     }
-
-                    // prevent drawing outside of our render area
-                    this.drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, this.displayWidth, this.displayHeight));
-                    
-                    //BodyIndex render pixels
-                    if (bodyIndexFrameProcessed)
-                    {
-                        this.RenderBodyIndexDepthPixels();
-                    }
-
-                    dc.Close();
-                    bodyIndexBuffer.Dispose();
-                    bodyIndexFrame.Dispose();
-                    bodyFrame.Dispose();
-                    depthFrame.Dispose();
-                    depthBuffer.Dispose();
                 }
+                depthFrame.Dispose();
+                depthFrame = null;
+
             }
             finally
             {
@@ -297,36 +294,39 @@ namespace HonsProjectKinect
 
         public unsafe double getWidestY(double frameWidth, ushort* frameDataDepth, int bodyIndexValue)
         {
-            List<int> Yaxis512pixels = new List<int>();
+            var tempYAxisValue = 0;
+            var tempYAxisIndex = 0;
 
-            List<uint> bodyIndexPixelsList = new List<uint>();
-            bodyIndexPixelsList.AddRange(bodyIndexPixels);
-
+            //iterate through Body Index Pixels array 512 indexes at a time - display 512 pixels wide
             for (int i = 0; i < bodyIndexPixels.Length; i += 512)
             {
-                var yAxisIndexs = bodyIndexPixelsList.GetRange(i, 512);
-                //var bodyIndexOccu = 512 - yAxisIndexs.Where(x => x.Equals(0)).Count();
+                var dest = new uint[512];
+                //Grab 512 bits of data - equals Y axis = 1
+                Array.Copy(bodyIndexPixels, i, dest, 0, 512);
 
-                //May be faster
-                int count=0;
-                foreach (uint s in yAxisIndexs) {
-                    if (s.Equals(0)) count++;
+                //Iterate through this Y = 1 and count how much body appears 
+                int bodyIndexOccu = 0;
+                foreach (uint s in dest)
+                {
+                    if (s.Equals(BodyColor[bodyIndexValue])) bodyIndexOccu++;
                 }
-                var bodyIndexOccu = 512 - count;
 
-                Yaxis512pixels.Add(bodyIndexOccu);
+                //Updates variables with most populated Y Axis - Logs Y Axis and occurrences 
+                if (bodyIndexOccu > tempYAxisValue)
+                {
+                    tempYAxisValue = 0;
+                    tempYAxisValue = tempYAxisValue + bodyIndexOccu;
+                    tempYAxisIndex = 0;
+                    tempYAxisIndex = tempYAxisIndex + i;
+                }
             }
 
-            int maxValue = Yaxis512pixels.Max();
-            int yAxisValue = Yaxis512pixels.IndexOf(maxValue);
+            //Get first & last point indexes of the Y Axis
+            uint[] getYAxisRange = new uint[512];
+            Array.Copy(bodyIndexPixels, tempYAxisIndex, getYAxisRange, 0, 512);
 
-            Yaxis512pixels.Clear();
-
-            //Get first & last point indexes
-            var getYAxisRange = bodyIndexPixelsList.GetRange(yAxisValue * 512, 512);
-
-            var firstPoint = getYAxisRange.FindIndex(val => val.Equals(BodyColor[bodyIndexValue])) + (yAxisValue * 512);
-            var lastPoint = (getYAxisRange.FindLastIndex(val => val.Equals(BodyColor[bodyIndexValue])) + (yAxisValue * 512));
+            var firstPoint = Array.FindIndex(getYAxisRange, val => val.Equals(BodyColor[bodyIndexValue])) + (tempYAxisIndex);
+            var lastPoint = Array.FindLastIndex(getYAxisRange, val => val.Equals(BodyColor[bodyIndexValue])) + (tempYAxisIndex);
 
             if (firstPoint != -1)
             {
@@ -338,17 +338,20 @@ namespace HonsProjectKinect
                 double YCoor2 = (lastPoint / frameWidth);
                 double ZCoor2 = frameDataDepth[lastPoint];
 
+                //Translates X,Y,Z of first/last point into 3D space points that we can use to calculate distance
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
+                //gets length in metres between the two points
                 double segmentationWidth = getLength(firstIndex, lastIndex);
                 return segmentationWidth;
             }
             return 0.0;
         }
 
-        public unsafe Tuple<double,double,double> getHeightSegmentation(double frameWidth, ushort* frameDataDepth, int bodyIndexValue)
+        public unsafe Tuple<double, double, double> getHeightSegmentation(double frameWidth, ushort* frameDataDepth, int bodyIndexValue)
         {
+            //Gets first/last index of body index - because we're looking for height just first positive value index in array and last 
             var firstIndexOfBody = Array.FindIndex(bodyIndexPixels, val => val.Equals(BodyColor[bodyIndexValue]));
             var lastIndexOfBody = Array.FindLastIndex(bodyIndexPixels, val => val.Equals(BodyColor[bodyIndexValue]));
 
@@ -362,22 +365,26 @@ namespace HonsProjectKinect
                 double YCoor2 = lastIndexOfBody / frameWidth;
                 double ZCoor2 = frameDataDepth[lastIndexOfBody];
 
+                //Translates X,Y,Z of first/last point into 3D space points that we can use to calculate distance
                 CameraSpacePoint firstIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor), Convert.ToSingle(YCoor), (ushort)ZCoor);
                 CameraSpacePoint lastIndex = xyToCameraSpacePoint(Convert.ToSingle(XCoor2), Convert.ToSingle(YCoor2), (ushort)ZCoor2);
 
+                //gets length in metres between the two points
                 double segmentationHeight = getLength(firstIndex, lastIndex);
 
                 return Tuple.Create(segmentationHeight, XCoor, YCoor);
             }
-            return Tuple.Create(0.0,0.0,0.0);
+            return Tuple.Create(0.0, 0.0, 0.0);
         }
 
-        public void drawOnSegmentedDisplay(int bodyIndexValue, double height, double width, double bodySize, double X, double Y)
+        public void drawOnSegmentedDisplay(int bodyIndexValue, double height, double width, double X, double Y)
         {
+            //Creates new textblock
             TextBlock textBlockOverlay = new TextBlock();
             textBlockOverlay.Foreground = Brushes.White;
             double myHeight;
             double myWidth;
+            //Gets the Max height/width values from interface
             if (Double.TryParse(txtBoxHeight.Text, out myHeight) | Double.TryParse(txtBoxWidth.Text, out myWidth))
             {
                 if (height > myHeight || width > myWidth)
@@ -390,12 +397,12 @@ namespace HonsProjectKinect
             textBlockOverlay.Name = "heightOverlay" + bodyIndexValue;
             RegisterName(textBlockOverlay.Name, textBlockOverlay);
 
-            textBlockOverlay.Text = "BodyIndex: " + bodyIndexValue + "\n" + 
+            textBlockOverlay.Text = "BodyIndex: " + bodyIndexValue + "\n" +
                                     "Height: " + height.ToString("0.###") + " m" + "\n" +
-                                    "Width: " + width.ToString("0.###") + " m" + "\n" +
-                                    "Size: " + bodySize.ToString("0.###");
+                                    "Width: " + width.ToString("0.###") + " m" + "\n";
             segmentationView.Children.Add(textBlockOverlay);
 
+            //Place textblock above individuals head
             textBlockOverlay.RenderTransform = new TranslateTransform(X, Y - 65);
         }
 
@@ -404,6 +411,8 @@ namespace HonsProjectKinect
             DepthSpacePoint depthPoint = new DepthSpacePoint();
             depthPoint.X = X;
             depthPoint.Y = Y;
+
+            //Maps the X,Y,Z to CameraSpace
             var CameraPoint = coordinateMapper.MapDepthPointToCameraSpace(depthPoint, Z);
 
             return CameraPoint;
@@ -411,44 +420,11 @@ namespace HonsProjectKinect
 
         public static double getLength(CameraSpacePoint p1, CameraSpacePoint p2)
         {
+            //Calculates Distance between 2 3D points
             return Math.Sqrt(
                 Math.Pow(p1.X - p2.X, 2) +
                 Math.Pow(p1.Y - p2.Y, 2) +
                 Math.Pow(p1.Z - p2.Z, 2));
-        }
-
-        public double getSkeletonHeight(IReadOnlyDictionary<JointType, Joint> joints)
-        {
-            var head = joints[JointType.Head];
-            var neck = joints[JointType.Neck];
-            var spineShoulder = joints[JointType.SpineShoulder];
-            var spineMid = joints[JointType.SpineMid];
-            var spineBase = joints[JointType.SpineBase];
-            var hipRight = joints[JointType.HipRight];
-            var hipLeft = joints[JointType.HipLeft];
-            var kneeRight = joints[JointType.KneeRight];
-            var kneeLeft = joints[JointType.KneeLeft];
-            var ankleRight = joints[JointType.AnkleRight];
-            var ankleLeft = joints[JointType.AnkleLeft];
-            var footRight = joints[JointType.FootRight];
-            var footLeft = joints[JointType.FootLeft];
-
-            double torsoHeight = getSkeletonLength(head, neck) + getSkeletonLength(neck, spineShoulder) + getSkeletonLength(spineShoulder, spineMid) + getSkeletonLength(spineMid, spineBase) + (getSkeletonLength(spineBase, hipLeft) + getSkeletonLength(spineBase, hipRight)) / 2;
-
-            double leftLegHeight = getSkeletonLength(hipLeft, kneeLeft) + getSkeletonLength(kneeLeft, ankleLeft) + getSkeletonLength(ankleLeft, footLeft);
-
-            double rightLegHeight = getSkeletonLength(hipRight, kneeRight) + getSkeletonLength(kneeRight, ankleRight) + getSkeletonLength(ankleRight, footRight);
-
-            double totalHeight = torsoHeight + (leftLegHeight + rightLegHeight) / 2 + 0.01;
-            return totalHeight;
-        }
-
-        public static double getSkeletonLength(Joint p1, Joint p2)
-        {
-            return Math.Sqrt(
-                Math.Pow(p1.Position.X - p2.Position.X, 2) +
-                Math.Pow(p1.Position.Y - p2.Position.Y, 2) +
-                Math.Pow(p1.Position.Z - p2.Position.Z, 2));
         }
 
         private void DrawBody(IReadOnlyDictionary<JointType, Joint> joints, IDictionary<JointType, Point> jointPoints, DrawingContext drawingContext, Pen drawingPen)
@@ -514,6 +490,8 @@ namespace HonsProjectKinect
             {
                 if (frameData[i] < 5)
                 {
+                    //Populates Body Index Array - body index are between 0-5 anything > is background
+                    //Uses the Index Value (0-5) as the index for its colour - bodyIndexPixels gets populated with 8-bit uint that is index colour
                     this.bodyIndexPixels[i] = BodyColor[frameData[i]];
                 }
                 else
@@ -521,6 +499,7 @@ namespace HonsProjectKinect
                     this.bodyIndexPixels[i] = 0x00000000;
                 }
 
+                //Populates the depth array that is seen in Interface
                 ushort depth = frameDataDepth[i];
                 this.depthPixels[i] = (byte)(depth >= minDepth && depth <= ushort.MaxValue ? (depth / MapDepthToByte) : 0);
             }
@@ -528,6 +507,7 @@ namespace HonsProjectKinect
 
         private void RenderBodyIndexDepthPixels()
         {
+            //Renders pixels on the interface
             this.bodyIndexBitmap.WritePixels(
                 new Int32Rect(0, 0, this.bodyIndexBitmap.PixelWidth, this.bodyIndexBitmap.PixelHeight),
                 this.bodyIndexPixels,
@@ -543,6 +523,7 @@ namespace HonsProjectKinect
 
         public ImageSource ImageSource
         {
+            //getters for linking data to interface
             get
             {
                 return this.imageSource;
@@ -551,6 +532,7 @@ namespace HonsProjectKinect
 
         public ImageSource ImageSourceBodyIndex
         {
+            //getters for linking data to interface
             get
             {
                 return this.bodyIndexBitmap;
@@ -559,20 +541,11 @@ namespace HonsProjectKinect
 
         public ImageSource ImageSourceDepth
         {
+            //getters for linking data to interface
             get
             {
                 return this.depthBitmap;
             }
-        }
-
-        public class segmentationHeightText
-        {
-            public string heightTextData { get; set; }
-        }
-
-        public class segmentationWidthText
-        {
-            public string widthTextData { get; set; }
         }
 
         //Check if window is loaded
@@ -604,7 +577,9 @@ namespace HonsProjectKinect
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            //Weird bug where if text box is selected/in focus it makes the height/width textblock flicker bad
+            //Just clears focus away from textbox if window is clicked
             Keyboard.ClearFocus();
-        }  
+        }
     }
 }
