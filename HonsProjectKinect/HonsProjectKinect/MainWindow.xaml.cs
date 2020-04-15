@@ -382,12 +382,18 @@ namespace HonsProjectKinect
             //Creates new textblock
             TextBlock textBlockOverlay = new TextBlock();
             textBlockOverlay.Foreground = Brushes.White;
-            double myHeight;
-            double myWidth;
+
+            double myMaxHeight;
+            double myMaxWidth;
+
+            double myMinHeight;
+            double myMinWidth;
+
             //Gets the Max height/width values from interface
-            if (Double.TryParse(txtBoxHeight.Text, out myHeight) | Double.TryParse(txtBoxWidth.Text, out myWidth))
+            if (Double.TryParse(txtBoxHeight.Text, out myMaxHeight) | Double.TryParse(txtBoxWidth.Text, out myMaxWidth) | 
+                Double.TryParse(txtBoxHeightMin.Text, out myMinHeight) | Double.TryParse(txtBoxWidthMin.Text, out myMinWidth))
             {
-                if (height > myHeight || width > myWidth)
+                if (height > myMaxHeight || width > myMaxWidth || height < myMinHeight || width < myMinWidth)
                 {
                     textBlockOverlay.Foreground = Brushes.Red;
                 }
